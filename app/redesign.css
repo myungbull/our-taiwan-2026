@@ -538,3 +538,63 @@ footer details { font-size: 9px; }
   .photo-entry>img, .photo-entry>video { border-width: 4px; }
   .photo-entry:nth-child(3n+1) { margin-top: 2px; }
 }
+
+/* Restaurant and stay pages continue the selected couples-journal direction. */
+.food-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.food {
+  position: relative; display: block; overflow: hidden; padding: 0; border: 1px solid rgba(232,217,212,.88);
+  border-radius: 23px; background: var(--surface); box-shadow: 0 12px 28px rgba(89,60,54,.055), inset 0 1px 0 #fff;
+}
+.food-number { position: absolute; z-index: 1; top: 12px; left: 12px; width: 32px; height: 32px; border: 1px solid rgba(255,255,255,.58); border-radius: 50%; background: rgba(255,250,246,.91); box-shadow: 0 4px 14px rgba(35,27,28,.13); }
+.food-image { position: relative; height: 192px; overflow: hidden; background: var(--soft); }
+.food-image img { width: 100%; height: 100%; object-fit: cover; transition: transform .55s cubic-bezier(.2,.7,.2,1); }
+.food:hover .food-image img { transform: scale(1.035); }
+.food-image:after { position: absolute; inset: 35% 0 0; content: ''; background: linear-gradient(0deg,rgba(37,28,30,.52),transparent); }
+.food-image>span { position: absolute; z-index: 1; right: 13px; bottom: 11px; color: #fffaf6; font-size: 8px; letter-spacing: 1.5px; text-shadow: 0 1px 8px rgba(0,0,0,.3); }
+.food-copy { padding: 17px 18px 18px; }
+.food-meta { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.food-meta>span { color: var(--muted); font-size: 7px; letter-spacing: 1px; }
+.food h2 { margin: 7px 0 4px; font-size: 19px; }
+.food p { margin: 6px 0; }
+.food .links { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(232,217,212,.72); }
+.hotel { overflow: hidden; padding: 0; }
+.hotel-cover { position: relative; height: 220px; overflow: hidden; background: var(--soft); }
+.hotel-cover img { width: 100%; height: 100%; object-fit: cover; }
+.hotel-cover:after { position: absolute; inset: 30% 0 0; content: ''; background: linear-gradient(0deg,rgba(37,28,30,.55),transparent); }
+.hotel-cover>span { position: absolute; z-index: 1; bottom: 15px; left: 18px; color: #fffaf6; font-size: 8px; letter-spacing: 1.7px; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
+.hotel-body { padding: 19px 22px 22px; }
+.hotel-body .row { align-items: center; }
+.hotel-body h2 { margin: 12px 0 4px; }
+.hotel-body dl { margin: 18px 0; }
+.hotel-body .links { flex-wrap: wrap; }
+.budget-panel { border-color: #ead8d4; background: linear-gradient(145deg,#fffaf6,#f4e8e3); color: var(--ink); box-shadow: 0 12px 30px rgba(89,60,54,.07), inset 0 1px 0 #fff; }
+.budget-panel h2 { color: var(--accent-dark); }
+.budget-panel button { background: #eadbd6; color: var(--accent-dark); }
+.meter { background: #eadbd6; }
+.meter span { background: linear-gradient(90deg,#b87b7d,#89565b); }
+.budget-grid small { color: var(--muted); }
+.budget-grid b { color: var(--ink); }
+@media (max-width: 680px) {
+  .food-list { grid-template-columns: 1fr; gap: 12px; }
+  .food { display: grid; grid-template-columns: minmax(112px,.82fr) minmax(0,1.18fr); min-height: 190px; border-radius: 19px; }
+  .food-image { height: auto; min-height: 100%; grid-column: 1; grid-row: 1; }
+  .food-image img { position: absolute; inset: 0; }
+  .food-image:after { inset: 45% 0 0; }
+  .food-image>span { right: auto; bottom: 10px; left: 10px; font-size: 6px; }
+  .food-number { top: 10px; left: 10px; width: 28px; height: 28px; font-size: 14px; }
+  .food-copy { grid-column: 2; grid-row: 1; padding: 13px 12px 13px; }
+  .food-meta { align-items: flex-start; flex-direction: column; gap: 0; }
+  .food-meta>span { display: none; }
+  .food h2 { margin: 5px 0 3px; font-size: 16px; line-height: 1.4; }
+  .food .menu { font-size: 10px; }
+  .food p { font-size: 9px; line-height: 1.55; }
+  .food .badge { display: inline-block; margin-top: 3px; font-size: 7px; }
+  .food .links { flex-direction: column; gap: 4px; margin-top: 8px; padding-top: 7px; font-size: 9px; }
+  .hotel { border-radius: 20px; }
+  .hotel-cover { height: 177px; }
+  .hotel-body { padding: 16px; }
+  .hotel-body h2 { font-size: 19px; }
+  .hotel-body dl { grid-template-columns: 87px minmax(0,1fr); gap: 9px; }
+  .budget-panel { padding: 19px 17px; }
+  .budget-grid { gap: 15px; }
+}
