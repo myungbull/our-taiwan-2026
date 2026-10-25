@@ -57,7 +57,7 @@ main { max-width: 1120px; padding: 0 24px 138px; }
 .hero-shade { background: linear-gradient(100deg, rgba(38,29,32,.73) 0%, rgba(43,34,35,.28) 53%, rgba(45,31,33,.06) 100%), linear-gradient(0deg, rgba(37,29,30,.7), transparent 57%); }
 .hero-content { padding: 42px 44px; }
 .eyebrow { color: #f4deda; font-size: 9px; letter-spacing: 2.1px; }
-.hero h1 { max-width: 620px; margin: 24px 0 12px; font-family: var(--serif); font-size: clamp(38px, 5.1vw, 57px); font-weight: 500; letter-spacing: -2.8px; line-height: 1.27; text-wrap: balance; }
+.hero h1 { max-width: 620px; margin: 24px 0 12px; color: #fffaf5; font-family: var(--serif); font-size: clamp(38px, 5.1vw, 57px); font-weight: 500; letter-spacing: -2.8px; line-height: 1.27; text-shadow: 0 3px 20px rgba(0,0,0,.42); text-wrap: balance; }
 .hero p { color: rgba(255,247,242,.84); font-size: 13px; letter-spacing: .2px; }
 .hero-bottom { padding-top: 14px; border-top: 1px solid rgba(255,255,255,.22); letter-spacing: .8px; }
 .hero-bottom strong { border: 1px solid rgba(255,239,231,.58); background: rgba(82,57,58,.36); padding: 6px 14px; font-size: 12px; backdrop-filter: blur(12px); }
@@ -192,6 +192,7 @@ dl { grid-template-columns: 100px 1fr; gap: 11px; }
 .idea-form input, .idea-form select, .idea-form textarea, .photo-form input, .photo-form textarea, .location-controls select {
   border: 1px solid var(--line); border-radius: 13px; background: #fffdfa; padding: 11px 12px; font-size: 13px;
 }
+.photo-form input.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .idea-form textarea, .photo-form textarea { min-height: 78px; }
 .form-hint { color: var(--muted); font-size: 9px; line-height: 1.8; }
 .primary, .small-primary { border: 0; border-radius: 999px; background: var(--accent-dark); color: #fffaf6; padding: 11px 16px; box-shadow: 0 8px 18px rgba(114,72,77,.16); }

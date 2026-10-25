@@ -462,9 +462,9 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
       <form className="photo-form" onSubmit={uploadPhoto}>
         <div className="row"><h2>{dateLabel(photoDate)}의 기록</h2><span className="badge">{selectedMedia ? `${selectedMedia.type.startsWith('video/') ? '영상' : '사진'} · ${formatBytes(selectedMedia.size)} 원본` : '사진이나 영상 선택'}</span></div>
         <div className="file-pickers"><button type="button" className="outline-button" onClick={() => photoInputRef.current?.click()}>사진 앨범</button><button type="button" className="outline-button" onClick={() => cameraInputRef.current?.click()}>사진 촬영</button><button type="button" className="outline-button" onClick={() => videoInputRef.current?.click()}>영상 선택·촬영</button>
-          <input ref={photoInputRef} className="visually-hidden" type="file" accept="image/*" onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
-          <input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
-          <input ref={videoInputRef} className="visually-hidden" type="file" accept="video/*" capture="environment" onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
+          <input ref={photoInputRef} className="visually-hidden" type="file" accept="image/*" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
+          <input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
+          <input ref={videoInputRef} className="visually-hidden" type="file" accept="video/*" capture="environment" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
         </div>
         {selectedMedia && mediaPreview && (selectedMedia.type.startsWith('video/') ? <video className="photo-preview" src={mediaPreview} controls playsInline preload="metadata" aria-label="업로드 전 선택한 영상 미리보기" /> : <img className="photo-preview" src={mediaPreview} alt="업로드 전 선택한 사진 미리보기" />)}
         <label>장소<input maxLength={120} value={photoPlace} onChange={(event) => setPhotoPlace(event.target.value)} placeholder="예: 지우펀 홍등 골목" /></label>
