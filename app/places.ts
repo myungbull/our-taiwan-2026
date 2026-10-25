@@ -1,0 +1,14 @@
+export const restaurants = [
+  { date: '11/18', region: '닝샤 야시장', name: '류위짜이 · 劉芋仔', menu: '토란볼 · 노른자 토란튀김', price: '1인 NT$50~100 · 추정', hours: '18:00~24:00 · 비정기 휴무', source: 'https://www.tcma.gov.taipei/News_Content.aspx?n=0EF13537DA4433F4&s=01B057DA3DBF8325&sms=CD584D86615E937D', query: '劉芋仔 寧夏夜市' },
+  { date: '11/18', region: '닝샤 야시장', name: '팡자지러우판 · 方家雞肉飯', menu: '닭고기밥 · 두부조림', price: '1인 NT$80~150 · 추정', hours: '18:00~24:00 · 월요일 휴무', source: 'https://www.tcma.gov.taipei/News_Content.aspx?n=0EF13537DA4433F4&s=CF4A384CB09A93E3&sms=CD584D86615E937D', query: '方家雞肉飯 寧夏夜市' },
+  { date: '11/19', region: '지우펀', name: '아간이 · 阿柑姨芋圓', menu: '따뜻한 토란경단탕 · 토란경단빙수', price: '1인 NT$60~100 · 추정', hours: '09:00~20:00 참고 · 출처별 마감시간 상이, 당일 확인', source: 'https://newtaipei.travel/ja/shop/detail/208244', query: '阿柑姨芋圓 九份' },
+  { date: '11/20', region: '용산사 · 완화', name: '샤오왕주과 · 小王煮瓜', menu: '루러우판 · 돼지고기 맑은탕', price: '1인 NT$100~200 · 추정', hours: '09:30~20:00 · 화요일 휴무', source: 'https://guide.michelin.com/tw/zh_TW/taipei-region/taipei/restaurant/hsiao-wang-steamed-minced-pork-with-pickles-in-broth', query: '小王煮瓜 萬華' },
+  { date: '11/20', region: '타이베이 101', name: '딘타이펑 · 101점', menu: '샤오롱바오 · 볶음밥', price: '1인 NT$500~800 · 추정', hours: '금 11:00~22:00 참고 · 지점에 재확인', source: 'https://www.dintaifung.com.tw/eng/store.php', query: '鼎泰豐 台北101店' },
+  { date: '11/21', region: '우라이 옛 거리', name: '타이야포포 · 泰雅婆婆', menu: '대나무통밥 · 산채 · 마가오 요리', price: '1인 NT$250~450 · 추정', hours: '10:00~21:00 · 토요일 ~22:00', source: 'https://newtaipei.travel/zh-tw/shop/detail/206301', query: '泰雅婆婆 烏來' },
+];
+
+export const hotels = [
+  { name: 'CityInn Taipei Station Branch II', stay: '11/18~11/21 · 3박', room: '2인 더블룸 · 창문 여부 확인', price: '3박 목표 ₩330,000 · 추정', check: '체크인 15:00 / 아웃 12:00 · 예약 조건 재확인', transport: '타이베이역 북쪽 · 닝샤 야시장 동선에 편리', note: '미예약 후보. 실제 날짜별 견적과 객실 재고 미확인. 창문·침대 구성·취소 조건을 예약 전 확인하세요.', source: 'https://c2.cityinn.com.tw/en/contact-e/', query: 'CityInn Hotel Taipei Station Branch II', budgetId: 'taipei' },
+  { name: 'Roaders Hotel Taipei Zhonghua', stay: '11/18~11/21 · 3박', room: 'Roaders Double / Superior Double 비교', price: '3박 목표 ₩390,000 · 추정', check: '체크인 / 체크아웃 예약 전 확인', transport: '시먼역 5번 출구 도보 약 3분 · 공항철도 A1 도보 약 12분', note: '미예약 후보. Roaders PLUS와 다른 호텔입니다. 기본 더블룸 무창 여부 확인. CityInn과 택일하며 예산에 중복 합산하지 않습니다.', source: 'https://zhonghua.roadershotel.com/en', query: 'Roaders Hotel Taipei Zhonghua', budgetId: 'taipei' },
+  { name: 'Spring Spa Hotel · 우라이', stay: '11/21~11/22 · 1박', room: '디럭스 온천 더블룸 우선 검토', price: '1박 목표 ₩230,000 · 추정', check: '체크인 17:00 / 아웃 12:00 · 공식 확인', transport: '신뎬역 → 849 버스 → 巨龍山莊 정류장 → 도보 100m', note: '미예약. 객실 내 냉·온 석조 욕조 공식 확인. 조식 08:30~11:00 예약제, 엘리베이터 없음. 요금 포함사항·온천 사용조건·귀국일 공항 픽업을 예약 전 확인하세요.', source: 'https://www.springspa.com.tw/portfolio/豪華溫泉雙人房/', query: 'Spring Spa Hotel Wulai', budgetId: 'wulai' },
+];
