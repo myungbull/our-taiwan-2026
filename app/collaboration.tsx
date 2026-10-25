@@ -169,8 +169,8 @@ async function compressVideo(file: File, onProgress: (value: number) => void): P
 function formatBytes(bytes: number): string {
   if (!bytes) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB'];
-  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
-  return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+  const index = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1000)));
+  return `${(bytes / 1000 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
 export default function Collaboration({ onScheduleChange }: { onScheduleChange: (items: ScheduleAddition[]) => void }) {
@@ -184,7 +184,7 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
   const [ideaSaving, setIdeaSaving] = useState(false);
   const [photoDate, setPhotoDate] = useState('2026-11-18');
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
-  const [mediaUsage, setMediaUsage] = useState<MediaUsage>({ usedBytes: 0, fileCount: 0, referenceBytes: 10 * 1024 ** 3 });
+  const [mediaUsage, setMediaUsage] = useState<MediaUsage>({ usedBytes: 0, fileCount: 0, referenceBytes: 10_000_000_000 });
   const [photoLoading, setPhotoLoading] = useState(false);
   const [photoError, setPhotoError] = useState('');
   const [photoPlace, setPhotoPlace] = useState('');

@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     return Response.json({
       photos,
       viewerLabel: travelerLabel(member.memberIndex),
-      usage: { usedBytes: Number(usage?.used_bytes ?? 0), fileCount: Number(usage?.file_count ?? 0), referenceBytes: 10 * 1024 ** 3 },
+      usage: { usedBytes: Number(usage?.used_bytes ?? 0), fileCount: Number(usage?.file_count ?? 0), referenceBytes: 10_000_000_000 },
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch {
     return Response.json({ error: '사진 기록을 불러오지 못했습니다.' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } });
