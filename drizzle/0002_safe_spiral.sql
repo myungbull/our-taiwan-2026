@@ -1,0 +1,1 @@
+ALTER TABLE `photos` ADD `content_type` text DEFAULT 'image/webp' NOT NULL;

@@ -1,10 +1,14 @@
 import { env } from 'cloudflare:workers';
+import { requireAllowedMember, isResponse, sameOrigin } from '../_lib/auth';
+export const dynamic = 'force-dynamic';
 export async function GET() {
- try { const rows = await env.DB!.prepare('SELECT key, value, revision FROM records').all(); return Response.json(rows.results, {headers:{'Cache-Control':'no-store'}}); }
- catch { return Response.json({error:'공유 저장소에 연결하지 못했습니다.'},{status:503}); }
+ const member=await requireAllowedMember(); if(isResponse(member))return member;
+ try { const rows = await env.DB!.prepare('SELECT key, value, revision FROM records').all(); return Response.json(rows.results, {headers:{'Cache-Control':'private, no-store'}}); }
+ catch { return Response.json({error:'공유 저장소에 연결하지 못했습니다.'},{status:503,headers:{'Cache-Control':'private, no-store'}}); }
 }
 export async function PUT(request: Request) {
- if(request.headers.get('origin') !== new URL(request.url).origin) return new Response(null,{status:403});
+ const member=await requireAllowedMember(); if(isResponse(member))return member;
+ if(!sameOrigin(request)) return new Response(null,{status:403});
  try {
  const {key,value,revision}=await request.json() as {key:string;value:any;revision:number};
  if(typeof key!=='string'||!/^(budget|check|total):[a-z0-9_-]+$/.test(key)||JSON.stringify(value).length>1500||!Number.isInteger(revision)) return new Response(null,{status:400});
