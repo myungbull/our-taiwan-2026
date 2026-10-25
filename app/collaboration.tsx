@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { days } from './travel-data';
+import MediaViewer from './media-viewer';
+import './media-updates.css';
 
 type Slot = {
   id: string;
@@ -18,7 +20,16 @@ type Slot = {
 type SlotVote = { slotId: string; votes: Array<{ label: string; response: 'yes' | 'no' }>; myVote: 'yes' | 'no' | null; approved: boolean };
 type Idea = { id: string; title: string; url: string; note: string; place: string; durationMinutes: number; preferredDate: string | null; suggestions: Slot[]; slotVotes: SlotVote[]; createdAt: string; updatedAt: string };
 type ScheduleAddition = { id: string; title: string; place: string; note: string; date: string; time: string; durationMinutes: number; mapUrl: string };
-type PhotoEntry = { id: string; date: string; place: string; caption: string; uploader: string; uploadedAt: string; byteSize: number; contentType: string; imageUrl: string };
+export type PhotoEntry = { id: string; date: string; place: string; caption: string; uploader: string; uploadedAt: string; byteSize: number; contentType: string; imageUrl: string };
+export type CollaborationSection = 'ideas' | 'photos' | 'nearby';
+type CollaborationProps = {
+  onScheduleChange: (items: ScheduleAddition[]) => void;
+  activeSection?: CollaborationSection;
+  hideNavigation?: boolean;
+  selectedDate?: string;
+  onDateChange?: (date: string) => void;
+  onPhotoEdit?: (photo: PhotoEntry) => void;
+};
 type MediaUsage = { usedBytes: number; fileCount: number; referenceBytes: number };
 type PlacePin = { id: string; name: string; date: string; query: string; lat: number; lng: number; mapUrl: string };
 
@@ -96,7 +107,7 @@ async function compressVideo(file: File, onProgress: (value: number) => void): P
   video.preload = 'auto';
   video.playsInline = true;
   video.style.cssText = 'position:fixed;width:2px;height:2px;left:-10px;top:-10px;opacity:0;pointer-events:none';
-  document.body.append(video);
+  document.body.appendChild(video);
   let audioContext: AudioContext | undefined;
   let canvasStream: MediaStream | undefined;
   let outputStream: MediaStream | undefined;
@@ -117,9 +128,19 @@ async function compressVideo(file: File, onProgress: (value: number) => void): P
     audioSource.connect(silentOutput);
     silentOutput.connect(audioContext.destination);
     const resumeAudio = audioContext.resume();
+    // Prime playback while the upload button's user gesture is active (Safari).
+    // Rewind before recording so metadata/encoder setup cannot trim the opening.
     const playback = video.play();
-    await metadataReady;
+    await Promise.all([metadataReady, resumeAudio, playback]);
+    video.pause();
     if (!Number.isFinite(video.duration) || video.duration <= 0 || video.duration > 180) throw new Error('영상은 3분 이내로 선택해 주세요. 긴 영상은 짧게 잘라 올리면 저장이 빨라집니다.');
+    if (video.currentTime !== 0) {
+      await new Promise<void>((resolve, reject) => {
+        video.addEventListener('seeked', () => resolve(), { once: true });
+        video.addEventListener('error', () => reject(new Error('영상 시작 위치를 읽지 못했습니다.')), { once: true });
+        video.currentTime = 0;
+      });
+    }
 
     const scale = Math.min(1, 1280 / Math.max(video.videoWidth, video.videoHeight));
     const canvas = document.createElement('canvas');
@@ -145,10 +166,14 @@ async function compressVideo(file: File, onProgress: (value: number) => void): P
       if (!video.ended && recorder?.state === 'recording') frame = requestAnimationFrame(drawFrame);
     };
     drawFrame();
-    await Promise.all([resumeAudio, playback]);
-    const compressed = await compressedPromise;
+    const [, compressed] = await Promise.all([video.play(), compressedPromise]);
     if (!compressed.size) throw new Error('압축된 영상이 비어 있습니다. 다시 시도해 주세요.');
-    if (compressed.size >= file.size) throw new Error('압축 결과가 원본보다 작아지지 않았습니다. 더 짧은 영상이나 이미 압축된 영상을 선택해 주세요.');
+    // Only an already playable, duration-validated supported source may bypass
+    // recompression. MOV/HEVC and unknown types still require the encoded output.
+    if (compressed.size >= file.size && ['video/mp4', 'video/webm'].includes(file.type) && file.size <= 50_000_000) {
+      onProgress(100);
+      return file;
+    }
     if (compressed.size > 50_000_000) throw new Error('압축한 영상이 50MB를 넘습니다. 3분보다 짧게 잘라 다시 시도해 주세요.');
     onProgress(100);
     return compressed;
@@ -173,8 +198,9 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1000 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-export default function Collaboration({ onScheduleChange }: { onScheduleChange: (items: ScheduleAddition[]) => void }) {
-  const [section, setSection] = useState<'ideas' | 'photos' | 'nearby'>('ideas');
+export default function Collaboration({ onScheduleChange, activeSection, hideNavigation = false, selectedDate, onDateChange, onPhotoEdit }: CollaborationProps) {
+  const [localSection, setSection] = useState<CollaborationSection>('ideas');
+  const section = activeSection ?? localSection;
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [ideaLoading, setIdeaLoading] = useState(true);
   const [ideaError, setIdeaError] = useState('');
@@ -184,8 +210,11 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
   const [ideaSaving, setIdeaSaving] = useState(false);
   const [photoDate, setPhotoDate] = useState('2026-11-18');
   const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+  const [viewingPhoto, setViewingPhoto] = useState<PhotoEntry | null>(null);
+  const [startPhotoEdit, setStartPhotoEdit] = useState(false);
   const [mediaUsage, setMediaUsage] = useState<MediaUsage>({ usedBytes: 0, fileCount: 0, referenceBytes: 10_000_000_000 });
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [nextPhotoCursor, setNextPhotoCursor] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState('');
   const [photoPlace, setPhotoPlace] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
@@ -212,6 +241,13 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const videoCameraInputRef = useRef<HTMLInputElement>(null);
+  const photoRequest = useRef(0);
+  const photoAbort = useRef<AbortController | null>(null);
+  const photoPageCount = useRef(1);
+  const photoCursor = useRef<string | null>(null);
+  const activePhotoDate = useRef(photoDate);
+  activePhotoDate.current = photoDate;
   const mediaPreview = useMemo(() => selectedMedia ? URL.createObjectURL(selectedMedia) : null, [selectedMedia]);
 
   useEffect(() => {
@@ -219,6 +255,28 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
   }, []);
 
   useEffect(() => () => { if (mediaPreview) URL.revokeObjectURL(mediaPreview); }, [mediaPreview]);
+
+  useEffect(() => {
+    if (selectedDate && photoDays.some((day) => day.date === selectedDate)) setPhotoDate(selectedDate);
+  }, [selectedDate]);
+
+  function selectMedia(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) { setSelectedMedia(file); setPhotoError(''); }
+    event.target.value = '';
+  }
+
+  function openPhoto(photo: PhotoEntry, edit = false) {
+    if (edit && onPhotoEdit) { onPhotoEdit(photo); return; }
+    setStartPhotoEdit(edit); setViewingPhoto(photo);
+  }
+
+  function addEditedPhoto(file: File, original: PhotoEntry) {
+    setSelectedMedia(file); setPhotoDate(original.date); onDateChange?.(original.date);
+    setPhotoPlace(original.place); setPhotoCaption(`편집본 · ${original.caption || original.place || '대만 여행'}`.slice(0, 240));
+    setPhotoError(''); setViewingPhoto(null);
+    window.setTimeout(() => document.querySelector<HTMLFormElement>('.photo-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
 
   const publishApproved = useCallback((rows: Idea[]) => {
     onScheduleChange(rows.flatMap((idea) => idea.suggestions.flatMap((slot) => {
@@ -250,22 +308,47 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
     } catch { setCustomPins([]); }
   }, []);
 
-  const refreshPhotos = useCallback(async () => {
+  const refreshPhotos = useCallback(async (append = false) => {
+    if (activePhotoDate.current !== photoDate || (append && !photoCursor.current)) return;
+    photoAbort.current?.abort();
+    const controller = new AbortController();
+    photoAbort.current = controller;
+    const requestId = ++photoRequest.current;
     setPhotoLoading(true);
     try {
-      const response = await fetch(`/api/photos?date=${photoDate}`, { cache: 'no-store' });
-      if (!response.ok) throw new Error('비공개 사진 기록에 접속할 수 없습니다.');
-      const data = await response.json() as { photos: PhotoEntry[]; viewerLabel: string; usage?: MediaUsage };
-      setPhotos(data.photos); setViewerLabel(data.viewerLabel); if (data.usage) setMediaUsage(data.usage); setPhotoError('');
-    } catch (error) { setPhotoError(error instanceof Error ? error.message : '사진 기록을 불러오지 못했습니다.'); }
-    finally { setPhotoLoading(false); }
+      let cursor = append ? photoCursor.current : null;
+      let collected: PhotoEntry[] = [];
+      let loadedPages = 0;
+      let latest: { viewerLabel: string; usage?: MediaUsage } | undefined;
+      const pagesToLoad = append ? 1 : photoPageCount.current;
+      do {
+        const params = new URLSearchParams({ date: photoDate });
+        if (cursor) params.set('cursor', cursor);
+        const response = await fetch(`/api/photos?${params}`, { cache: 'no-store', signal: controller.signal });
+        if (!response.ok) throw new Error('비공개 사진 기록에 접속할 수 없습니다.');
+        const data = await response.json() as { photos: PhotoEntry[]; viewerLabel: string; usage?: MediaUsage; nextCursor?: string | null };
+        collected = collected.concat(data.photos);
+        latest = data;
+        cursor = data.nextCursor ?? null;
+        loadedPages++;
+      } while (cursor && loadedPages < pagesToLoad);
+      if (controller.signal.aborted || requestId !== photoRequest.current || activePhotoDate.current !== photoDate) return;
+      setPhotos((previous) => append ? [...new Map([...previous, ...collected].map((entry) => [entry.id, entry])).values()] : collected);
+      photoCursor.current = cursor; setNextPhotoCursor(cursor);
+      photoPageCount.current = append ? photoPageCount.current + loadedPages : loadedPages;
+      if (latest) { setViewerLabel(latest.viewerLabel); if (latest.usage) setMediaUsage(latest.usage); }
+      setPhotoError('');
+    } catch (error) {
+      if (!controller.signal.aborted && requestId === photoRequest.current) setPhotoError(error instanceof Error ? error.message : '사진 기록을 불러오지 못했습니다.');
+    } finally { if (requestId === photoRequest.current) setPhotoLoading(false); }
   }, [photoDate]);
 
   useEffect(() => {
     if (section !== 'photos') return;
+    setPhotos([]); photoPageCount.current = 1; photoCursor.current = null; setNextPhotoCursor(null);
     void refreshPhotos();
     const timer = window.setInterval(() => void refreshPhotos(), 15000);
-    return () => window.clearInterval(timer);
+    return () => { window.clearInterval(timer); ++photoRequest.current; photoAbort.current?.abort(); };
   }, [section, refreshPhotos]);
 
   useEffect(() => {
@@ -347,11 +430,11 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
     event.preventDefault();
     if (!selectedMedia) { setPhotoError('사진이나 영상을 먼저 선택해 주세요.'); return; }
     const isVideo = selectedMedia.type.startsWith('video/');
-    setUploading(true); setPhotoError(''); setCompressionProgress(0); setUploadStage(isVideo ? '영상 크기를 줄이는 중' : '사진 크기를 줄이는 중');
+    setUploading(true); setPhotoError(''); setCompressionProgress(0); setUploadStage(isVideo ? '영상 압축 중' : '사진 크기를 줄이는 중');
     try {
       const compressed = isVideo ? await compressVideo(selectedMedia, setCompressionProgress) : await compressPhoto(selectedMedia);
       if (!isVideo && compressed.size > 5_000_000) throw new Error('축소 후에도 5MB를 넘습니다. 다른 사진을 선택해 주세요.');
-      if (isVideo && (compressed.size > 50_000_000 || compressed.size >= selectedMedia.size)) throw new Error('압축 영상이 50MB를 넘거나 원본보다 작아지지 않았습니다. 더 짧은 영상으로 다시 시도해 주세요.');
+      if (isVideo && compressed.size > 50_000_000) throw new Error('영상이 50MB를 넘습니다. 더 짧은 영상으로 다시 시도해 주세요.');
       setUploadStage('비공개 저장소에 올리는 중');
       const extension = compressed.type === 'image/webp' ? 'webp' : compressed.type === 'image/jpeg' ? 'jpg' : compressed.type === 'video/mp4' ? 'mp4' : 'webm';
       const body = new FormData(); body.set('date', photoDate); body.set('place', photoPlace); body.set('caption', photoCaption); body.set('media', compressed, `trip-${photoDate}.${extension}`);
@@ -362,6 +445,7 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
       if (photoInputRef.current) photoInputRef.current.value = '';
       if (cameraInputRef.current) cameraInputRef.current.value = '';
       if (videoInputRef.current) videoInputRef.current.value = '';
+      if (videoCameraInputRef.current) videoCameraInputRef.current.value = '';
       await refreshPhotos();
     } catch (error) { setPhotoError(error instanceof Error ? error.message : '기록을 저장하지 못했습니다.'); }
     finally { setUploading(false); setUploadStage(''); setCompressionProgress(0); }
@@ -373,6 +457,7 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
       const response = await fetch('/api/photos', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: photo.id }) });
       const data = await response.json() as { error?: string };
       if (!response.ok) throw new Error(data.error || '기록을 삭제하지 못했습니다.');
+      if (viewingPhoto?.id === photo.id) setViewingPhoto(null);
       await refreshPhotos();
     } catch (error) { setPhotoError(error instanceof Error ? error.message : '기록을 삭제하지 못했습니다.'); }
   }
@@ -409,12 +494,12 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
   }
 
   return <section className="collab-page">
-    <div className="page-heading"><small>OUR SHARED JOURNAL</small><h1>둘이 함께 채우는 여행.</h1><p>{viewerLabel ? `${viewerLabel}로 접속 중 · 두 사람에게만 보이는 공동 공간` : '허용된 두 계정만 접속할 수 있는 공간'}</p></div>
+    {!hideNavigation && <><div className="page-heading"><small>OUR SHARED JOURNAL</small><h1>둘이 함께 채우는 여행.</h1><p>{viewerLabel ? `${viewerLabel}로 접속 중 · 두 사람에게만 보이는 공동 공간` : '허용된 두 계정만 접속할 수 있는 공간'}</p></div>
     <nav className="collab-tabs" aria-label="공동 공간 메뉴">
       <button aria-pressed={section === 'ideas'} onClick={() => setSection('ideas')}>하고 싶은 것</button>
       <button aria-pressed={section === 'photos'} onClick={() => setSection('photos')}>사진 기록</button>
       <button aria-pressed={section === 'nearby'} onClick={() => setSection('nearby')}>근처 알림</button>
-    </nav>
+    </nav></>}
 
     {section === 'ideas' && <>
       <section className="collab-intro"><span>01 / IDEAS</span><h2>가고 싶은 곳을 모아두고,<br/>둘이 함께 날짜를 정해요.</h2><p>링크와 메모를 저장하면 현재 확정 일정 사이의 후보 시간을 보여줍니다. 두 사람 모두 같은 시간대에 찬성해야 일정에 반영됩니다.</p></section>
@@ -452,7 +537,7 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
 
     {section === 'photos' && <>
       <section className="collab-intro"><span>02 / PHOTO DIARY</span><h2>오늘의 장면을<br/>날짜에 남겨요.</h2><p>사진과 짧은 영상은 기기에서 자동 축소해 비공개 저장소에 올립니다. 파일은 공개 URL로 제공하지 않고, 두 허용 계정의 로그인 요청을 통해서만 열립니다.</p></section>
-      <div className="date-tabs photo-date-tabs">{photoDays.map((day) => <button key={day.date} aria-pressed={photoDate === day.date} onClick={() => setPhotoDate(day.date)}><small>{['수','목','금','토','일'][new Date(`${day.date}T12:00:00`).getDay() === 0 ? 4 : new Date(`${day.date}T12:00:00`).getDay() - 3]}</small><b>{Number(day.date.slice(-2))}</b></button>)}</div>
+      <div className="date-tabs photo-date-tabs">{photoDays.map((day) => <button key={day.date} aria-pressed={photoDate === day.date} onClick={() => { setPhotoDate(day.date); onDateChange?.(day.date); }}><small>{['수','목','금','토','일'][new Date(`${day.date}T12:00:00`).getDay() === 0 ? 4 : new Date(`${day.date}T12:00:00`).getDay() - 3]}</small><b>{Number(day.date.slice(-2))}</b></button>)}</div>
       <section className="media-usage" aria-label="사이트 미디어 저장 사용량">
         <div className="row"><div><small>PRIVATE TRIP STORAGE</small><h3>우리의 여행 저장소</h3></div><span className="usage-count">{mediaUsage.fileCount}개 파일</span></div>
         <div className="usage-total"><strong>{formatBytes(mediaUsage.usedBytes)}</strong><span>/ 10GB 참고 기준</span></div>
@@ -461,22 +546,25 @@ export default function Collaboration({ onScheduleChange }: { onScheduleChange: 
       </section>
       <form className="photo-form" onSubmit={uploadPhoto}>
         <div className="row"><h2>{dateLabel(photoDate)}의 기록</h2><span className="badge">{selectedMedia ? `${selectedMedia.type.startsWith('video/') ? '영상' : '사진'} · ${formatBytes(selectedMedia.size)} 원본` : '사진이나 영상 선택'}</span></div>
-        <div className="file-pickers"><button type="button" className="outline-button" onClick={() => photoInputRef.current?.click()}>사진 앨범</button><button type="button" className="outline-button" onClick={() => cameraInputRef.current?.click()}>사진 촬영</button><button type="button" className="outline-button" onClick={() => videoInputRef.current?.click()}>영상 선택·촬영</button>
-          <input ref={photoInputRef} className="visually-hidden" type="file" accept="image/*" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
-          <input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
-          <input ref={videoInputRef} className="visually-hidden" type="file" accept="video/*" capture="environment" aria-hidden="true" tabIndex={-1} onChange={(event) => setSelectedMedia(event.target.files?.[0] ?? null)} />
+        <div className="file-pickers media-file-pickers"><button type="button" className="outline-button" disabled={uploading} onClick={() => photoInputRef.current?.click()}>사진 보관함</button><button type="button" className="outline-button" disabled={uploading} onClick={() => cameraInputRef.current?.click()}>사진 촬영</button><button type="button" className="outline-button" disabled={uploading} onClick={() => videoInputRef.current?.click()}>영상 보관함</button><button type="button" className="outline-button" disabled={uploading} onClick={() => videoCameraInputRef.current?.click()}>영상 촬영</button>
+          <input ref={photoInputRef} className="visually-hidden" type="file" accept="image/*" aria-label="사진 보관함에서 선택" tabIndex={-1} onChange={selectMedia} />
+          <input ref={cameraInputRef} className="visually-hidden" type="file" accept="image/*" capture="environment" aria-label="사진 촬영" tabIndex={-1} onChange={selectMedia} />
+          <input ref={videoInputRef} className="visually-hidden" type="file" accept="video/*" aria-label="영상 보관함에서 선택" tabIndex={-1} onChange={selectMedia} />
+          <input ref={videoCameraInputRef} className="visually-hidden" type="file" accept="video/*" capture="environment" aria-label="영상 촬영" tabIndex={-1} onChange={selectMedia} />
         </div>
         {selectedMedia && mediaPreview && (selectedMedia.type.startsWith('video/') ? <video className="photo-preview" src={mediaPreview} controls playsInline preload="metadata" aria-label="업로드 전 선택한 영상 미리보기" /> : <img className="photo-preview" src={mediaPreview} alt="업로드 전 선택한 사진 미리보기" />)}
         <label>장소<input maxLength={120} value={photoPlace} onChange={(event) => setPhotoPlace(event.target.value)} placeholder="예: 지우펀 홍등 골목" /></label>
         <label>짧은 메모<textarea rows={2} maxLength={240} value={photoCaption} onChange={(event) => setPhotoCaption(event.target.value)} placeholder="그날 기억하고 싶은 한 문장" /></label>
-        <p className="form-hint">사진은 최대 1,800px·5MB, 영상은 최대 1,280px·24fps·3분·50MB로 기기에서 줄인 뒤 저장합니다. 영상 음성도 유지됩니다. 업로드한 계정과 대만 현지 시각을 기록하고, 각자 자신의 파일을 삭제할 수 있어요.</p>
+        <p className="form-hint">사진은 최대 1,800px·5MB, 영상은 3분·50MB 이내로 저장합니다. 영상 압축 시 최대 1,280px·24fps를 사용하며 이미 작은 MP4/WebM은 원본을 유지할 수 있어요. 영상 음성도 유지됩니다. 각자 자신의 파일을 삭제할 수 있어요.</p>
         {uploading && <div className="upload-progress" role="status"><span>{uploadStage}{selectedMedia?.type.startsWith('video/') && uploadStage.includes('압축') ? ` · ${compressionProgress}%` : ''}</span>{selectedMedia?.type.startsWith('video/') && uploadStage.includes('압축') && <progress value={compressionProgress} max={100} />}</div>}
         {photoError && <p className="error" role="alert">{photoError}</p>}
         <button className="primary" type="submit" disabled={uploading || !selectedMedia}>{uploading ? `${uploadStage}…` : '이 날짜 기록에 올리기'}</button>
       </form>
       <div className="sectionline"><h2>이날의 사진과 영상</h2><span>{photoLoading && photos.length === 0 ? '불러오는 중' : `${photos.length}개 기록`}</span></div>
-      {photoLoading && photos.length === 0 ? <div className="empty-state">여행 기록을 불러오는 중…</div> : photos.length === 0 ? <div className="empty-state"><strong>아직 남긴 장면이 없어요.</strong><p>사진이나 짧은 영상으로 이 날의 첫 기록을 남겨 보세요.</p></div> : <div className="photo-grid">{photos.map((photo) => <figure className={'photo-entry ' + (photo.contentType.startsWith('video/') ? 'video-entry' : '')} key={photo.id}>{photo.contentType.startsWith('video/') ? <video src={photo.imageUrl} controls playsInline preload="metadata" aria-label={`${photo.place || '대만 여행'} 영상`} /> : <img src={photo.imageUrl} alt={`${photo.place || '대만 여행'} ${photo.caption}`} loading="lazy"/>}<figcaption><strong>{photo.place || '장소 미입력'}</strong>{photo.caption && <p>{photo.caption}</p>}<small>{photo.uploader} · {new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(photo.uploadedAt))} · {formatBytes(photo.byteSize)}</small>{photo.uploader === viewerLabel && <button className="delete-photo" onClick={() => void deletePhoto(photo)}>이 기록 삭제</button>}</figcaption></figure>)}</div>}
+      {photoLoading && photos.length === 0 ? <div className="empty-state">여행 기록을 불러오는 중…</div> : photos.length === 0 ? <div className="empty-state"><strong>아직 남긴 장면이 없어요.</strong><p>사진이나 짧은 영상으로 이 날의 첫 기록을 남겨 보세요.</p></div> : <div className="photo-grid">{photos.map((photo) => <figure className={'photo-entry ' + (photo.contentType.startsWith('video/') ? 'video-entry' : '')} key={photo.id}>{photo.contentType.startsWith('video/') ? <video src={photo.imageUrl} controls playsInline preload="metadata" aria-label={`${photo.place || '대만 여행'} 영상`} /> : <button type="button" className="photo-open-button" aria-label={`${photo.place || '대만 여행'} 사진 크게 보기`} onClick={() => openPhoto(photo)}><img src={photo.imageUrl} alt={`${photo.place || '대만 여행'} ${photo.caption}`} loading="lazy"/><span className="photo-open-label">크게 보기</span></button>}<figcaption><strong>{photo.place || '장소 미입력'}</strong>{photo.caption && <p>{photo.caption}</p>}<small>{photo.uploader} · {new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(photo.uploadedAt))} · {formatBytes(photo.byteSize)}</small><div className="photo-record-actions">{!photo.contentType.startsWith('video/') && <button type="button" className="photo-edit-button" onClick={() => openPhoto(photo, true)}>힉스필드에서 편집하기 ↗</button>}{photo.uploader === viewerLabel && <button type="button" className="delete-photo" onClick={() => void deletePhoto(photo)}>이 기록 삭제</button>}</div></figcaption></figure>)}</div>}
       {photoError && <p className="error" role="alert">{photoError}</p>}
+      {nextPhotoCursor && <button type="button" className="outline-button" disabled={photoLoading} onClick={() => void refreshPhotos(true)}>{photoLoading ? '기록 불러오는 중…' : '이날의 이전 기록 더 보기'}</button>}
+      {viewingPhoto && <MediaViewer photo={viewingPhoto} startWithHandoff={startPhotoEdit} onClose={() => setViewingPhoto(null)} onEdit={onPhotoEdit ? () => onPhotoEdit(viewingPhoto) : undefined} onAddEdited={(file) => addEditedPhoto(file, viewingPhoto)} />}
     </>}
 
     {section === 'nearby' && <>

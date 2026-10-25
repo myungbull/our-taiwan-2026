@@ -22,10 +22,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     });
     if (isVideo) headers.set('Accept-Ranges', 'bytes');
     let status = 200;
-    if (object.range) {
+    if (isVideo && request.headers.has('range') && object.range) {
       const range = object.range;
-      const offset = 'suffix' in range ? Math.max(0, object.size - range.suffix) : range.offset ?? 0;
-      const length = 'suffix' in range ? Math.min(range.suffix, object.size) : range.length ?? object.size - offset;
+      const suffix = 'suffix' in range ? range.suffix : undefined;
+      const offset = typeof suffix === 'number' ? Math.max(0, object.size - suffix) : ('offset' in range ? range.offset : undefined) ?? 0;
+      const length = typeof suffix === 'number' ? Math.min(suffix, object.size) : ('length' in range ? range.length : undefined) ?? object.size - offset;
       headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${object.size}`);
       headers.set('Content-Length', String(length));
       status = 206;

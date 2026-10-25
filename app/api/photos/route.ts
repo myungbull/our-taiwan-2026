@@ -6,17 +6,26 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const member = await requireAllowedMember();
   if (isResponse(member)) return member;
-  const date = new URL(request.url).searchParams.get('date');
+  const params = new URL(request.url).searchParams;
+  const date = params.get('date');
   if (date && !isTripDate(date)) return Response.json({ error: '여행 날짜를 확인해 주세요.' }, { status: 400 });
+  const cursor = params.get('cursor');
+  const cursorParts = cursor?.split('|');
+  if (cursor !== null && (!cursorParts || cursorParts.length !== 2 || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(cursorParts[0]) || !Number.isFinite(Date.parse(cursorParts[0])) || !/^[a-f0-9-]{36}$/i.test(cursorParts[1]))) return Response.json({ error: '기록 페이지를 확인해 주세요.' }, { status: 400 });
   try {
-    const query = date
-      ? env.DB!.prepare('SELECT id, trip_date, place, caption, uploader_label, uploaded_at, byte_size, content_type FROM photos WHERE trip_date=? ORDER BY uploaded_at DESC LIMIT 100').bind(date)
-      : env.DB!.prepare('SELECT id, trip_date, place, caption, uploader_label, uploaded_at, byte_size, content_type FROM photos ORDER BY uploaded_at DESC LIMIT 100');
+    const conditions: string[] = [];
+    const bindings: string[] = [];
+    if (date) { conditions.push('trip_date=?'); bindings.push(date); }
+    if (cursorParts) { conditions.push('(uploaded_at<? OR (uploaded_at=? AND id<?))'); bindings.push(cursorParts[0], cursorParts[0], cursorParts[1]); }
+    const query = env.DB!.prepare(`SELECT id, trip_date, place, caption, uploader_label, uploaded_at, byte_size, content_type FROM photos${conditions.length ? ' WHERE ' + conditions.join(' AND ') : ''} ORDER BY uploaded_at DESC,id DESC LIMIT 101`).bind(...bindings);
     const [result, usage] = await Promise.all([
       query.all(),
       env.DB!.prepare('SELECT COUNT(*) AS file_count, COALESCE(SUM(byte_size),0) AS used_bytes FROM photos').first<{ file_count: number; used_bytes: number }>(),
     ]);
-    const photos = (result.results ?? []).map((row: any) => ({
+    const fetched = result.results ?? [];
+    const page = fetched.slice(0, 100);
+    const last = page.at(-1) as { uploaded_at: string; id: string } | undefined;
+    const photos = page.map((row: any) => ({
       id: row.id,
       date: row.trip_date,
       place: row.place,
@@ -29,6 +38,7 @@ export async function GET(request: Request) {
     }));
     return Response.json({
       photos,
+      nextCursor: fetched.length > 100 && last ? `${last.uploaded_at}|${last.id}` : null,
       viewerLabel: travelerLabel(member.memberIndex),
       usage: { usedBytes: Number(usage?.used_bytes ?? 0), fileCount: Number(usage?.file_count ?? 0), referenceBytes: 10_000_000_000 },
     }, { headers: { 'Cache-Control': 'private, no-store' } });
