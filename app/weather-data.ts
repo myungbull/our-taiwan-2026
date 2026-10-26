@@ -15,11 +15,13 @@ export const dayRegions: Record<string, readonly WeatherRegionId[]> = {
   '2026-11-22': ['wulai', 'taoyuan'],
 };
 export const WEATHER_TIMEZONE = 'Asia/Taipei';
-export type WeatherProvider = 'Open-Meteo' | 'CWA';
+export const TRIP_END_DATE = '2026-11-22';
+export const ACCUWEATHER_SWITCH_DATE = '2026-11-08';
+export type WeatherProvider = 'Open-Meteo' | 'AccuWeather';
 export type WeatherCurrent = {
   time: string; temperature: number | null; apparent: number | null;
   isDay: boolean | null; code: number | null; precipitation: number | null; wind: number | null;
-  source?: WeatherProvider; kind?: 'model' | 'observation'; station?: string; fetchedAt?: string; stale?: boolean;
+  source?: WeatherProvider; kind?: 'model' | 'observation'; station?: string; fetchedAt?: string; stale?: boolean; summary?: string;
 };
 export type WeatherDay = { date: string; code: number | null; minimum: number | null; maximum: number | null; rainProbability: number | null; source?: WeatherProvider; fetchedAt?: string; stale?: boolean; summary?: string };
 export type WeatherData = { fetchedAt: string; timezone: typeof WEATHER_TIMEZONE; current: WeatherCurrent | null; daily: WeatherDay[] };
@@ -27,7 +29,7 @@ export type WeatherResult = WeatherData & {
   provider: WeatherProvider; region: { id: WeatherRegionId; name: string }; requestedDate: string;
   selectedForecast: WeatherDay | null; availability: 'available' | 'not-yet' | 'past' | 'unavailable';
   forecastStart: string | null; forecastEnd: string | null; availableFrom: string; stale: boolean;
-  refresh?: { needed: boolean; inProgress: boolean; nextAttemptAt: string | null; primaryFailures: number; fallback: 'standby' | 'active' | 'missing-key' | 'unavailable' };
+  refresh?: { needed: boolean; inProgress: boolean; nextAttemptAt: string | null; failures: number; switchDate: string; switchState: 'scheduled' | 'connecting' | 'active' | 'missing-key' | 'unavailable' };
 };
 
 export function isWeatherRegion(value: unknown): value is WeatherRegionId {
@@ -80,11 +82,11 @@ export function normalizeWeatherData(raw: unknown, fetchedAt: string): WeatherDa
     } : null,
   };
 }
-export function weatherResultForDate(data: WeatherData, region: WeatherRegionId, date: string, today: string, stale = false): WeatherResult {
+export function weatherResultForDate(data: WeatherData, region: WeatherRegionId, date: string, today: string, stale = false, provider: WeatherProvider = 'Open-Meteo'): WeatherResult {
   const selectedForecast = data.daily.find(day => day.date === date) ?? null;
   const forecastStart = data.daily[0]?.date ?? null, forecastEnd = data.daily[data.daily.length - 1]?.date ?? null;
   const availability = selectedForecast ? 'available' : date < today ? 'past' : forecastEnd && date > forecastEnd ? 'not-yet' : 'unavailable';
-  return { ...data, provider: 'Open-Meteo', region: { id: region, name: weatherRegions[region].name }, requestedDate: date, selectedForecast, availability, forecastStart, forecastEnd, availableFrom: shiftWeatherDate(date, -15), stale };
+  return { ...data, provider, region: { id: region, name: weatherRegions[region].name }, requestedDate: date, selectedForecast, availability, forecastStart, forecastEnd, availableFrom: shiftWeatherDate(date, -15), stale };
 }
 export function weatherLabel(value: number | null): string {
   if (value === null) return '정보 없음';

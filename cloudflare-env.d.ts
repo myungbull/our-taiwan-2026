@@ -3,6 +3,6 @@ declare namespace Cloudflare {
     DB?: D1Database;
     BUCKET?: R2Bucket;
     ALLOWED_EMAILS?: string;
-    CWA_API_KEY?: string;
+    ACCUWEATHER_API_KEY?: string;
   }
 }

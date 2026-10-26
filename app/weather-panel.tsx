@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { dayRegions, shiftWeatherDate, taipeiDate, weatherLabel, weatherRegions, type WeatherRegionId, type WeatherResult } from './weather-data';
+import { ACCUWEATHER_SWITCH_DATE, dayRegions, shiftWeatherDate, taipeiDate, weatherLabel, weatherRegions, type WeatherRegionId, type WeatherResult } from './weather-data';
 import './weather.css';
 
 const REFRESH_MS = 15 * 60 * 1000;
@@ -10,7 +10,7 @@ function fetchedLabel(time: string) {
   const date = new Date(time);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Taipei', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(date) : '시각 확인 필요';
 }
-function sourceLabel(source: string) { return source === 'CWA' ? '대만 기상청' : 'Open-Meteo'; }
+function sourceLabel(source: string) { return source === 'AccuWeather' ? 'AccuWeather' : 'Open-Meteo'; }
 function pause(signal: AbortSignal, delay = 1500) {
   return new Promise<void>((resolve, reject) => {
     const cancel = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
@@ -57,7 +57,7 @@ export default function WeatherPanel({ date, compact = false }: { date: string; 
         const response = await fetch(`/api/weather?${new URLSearchParams({ region, date })}`, { method, cache: 'no-store', signal: network.signal });
         if (response.status === 401 || response.status === 403) throw new Error('허용된 계정으로 로그인한 뒤 날씨를 확인해 주세요.');
         const next = await response.json().catch(() => null) as WeatherResult | null;
-        const valid = next && ['Open-Meteo', 'CWA'].includes(next.provider) && next.region?.id === region && next.requestedDate === date && Array.isArray(next.daily);
+        const valid = next && ['Open-Meteo', 'AccuWeather'].includes(next.provider) && next.region?.id === region && next.requestedDate === date && Array.isArray(next.daily);
         if (!response.ok) {
           if (response.status === 503 && valid) remember(next);
           throw new Error('날씨 연결이 잠시 지연되고 있어요. 잠시 후 다시 시도해 주세요.');
@@ -110,28 +110,31 @@ export default function WeatherPanel({ date, compact = false }: { date: string; 
   const selectedSource = selected?.source ?? data?.provider ?? 'Open-Meteo';
   const delayed = hasWeather && (data?.stale || !!error);
   const sources = new Set([...(current ? [currentSource] : []), ...(data?.daily.map(day => day.source ?? data.provider) ?? [])]);
-  const beyondWindow = date > shiftWeatherDate(taipeiDate(), 15);
+  const maxForecastOffset = data?.provider === 'AccuWeather' ? 14 : 15;
+  const beyondWindow = date > shiftWeatherDate(taipeiDate(), maxForecastOffset);
   return <section className={`weather-panel${compact ? ' weather-compact' : ''}`} aria-label={`${weatherRegions[region].name} 날씨`}>
     <div className="weather-heading"><div><span className="weather-eyebrow">여행지 날씨</span><h2>{weatherRegions[region].name}</h2></div>{compact ? <a className="weather-more" href={`/weather?date=${date}`}>날씨 자세히 <span aria-hidden="true">↗</span></a> : <button className="weather-refresh" type="button" disabled={loading} onClick={() => setAttempt(number => number + 1)} aria-label="날씨 새로고침"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M20 8a8 8 0 1 0 0 8M20 3v5h-5"/></svg></button>}</div>
     {!compact && <div className="weather-regions" aria-label="날씨를 볼 여행 지역">{regions.map(id => <button key={id} type="button" aria-pressed={region === id} onClick={() => setChoice({ date, region: id })}>{weatherRegions[id].name}</button>)}</div>}
     {loading && <p className="weather-loading" role="status">{hasWeather ? '저장된 날씨를 보면서 최신 정보를 확인하고 있어요.' : '최신 지역 날씨를 확인하고 있어요.'}</p>}
     {error && <div className="weather-error" role="alert"><p>{error}</p><button type="button" onClick={() => setAttempt(number => number + 1)}>다시 시도</button></div>}
     {data && <>
-      {!hasWeather && data.refresh && data.refresh.primaryFailures > 0 && !error && <p className="weather-source-status" role="status">날씨 제공기관의 응답이 지연되고 있어요. 정상 자료를 받으면 여기에 표시해요.</p>}
-      {!loading && data.refresh?.nextAttemptAt && data.refresh.primaryFailures > 0 && <p className="weather-source-time">다시 확인 가능한 시각 {fetchedLabel(data.refresh.nextAttemptAt)} · 대만 시간</p>}
+      {!hasWeather && data.refresh && data.refresh.failures > 0 && !error && <p className="weather-source-status" role="status">날씨 제공기관의 응답이 지연되고 있어요. 정상 자료를 받으면 여기에 표시해요.</p>}
+      {!loading && data.refresh?.nextAttemptAt && data.refresh.failures > 0 && <p className="weather-source-time">다시 확인 가능한 시각 {fetchedLabel(data.refresh.nextAttemptAt)} · 대만 시간</p>}
       {delayed && <p className="weather-stale" role="status">갱신 지연 · 마지막 확인 {fetchedLabel(data.fetchedAt)} · 대만 시간</p>}
-      {data.refresh?.fallback === 'active' && <p className="weather-source-status">대만 기상청 예보로 연결했어요. 장기 예보는 마지막 정상 정보를 함께 표시해요.</p>}
-      {data.refresh?.fallback === 'missing-key' && <p className="weather-source-status">대만 기상청 연결 설정이 필요해요. 제공 가능한 마지막 정상 정보를 유지해요.</p>}
-      {data.refresh?.fallback === 'unavailable' && <p className="weather-source-status">대만 기상청 연결도 잠시 지연되고 있어요. 마지막 정상 정보를 유지해요.</p>}
-      <div className="weather-current"><WeatherSymbol code={current?.code ?? null}/><div className="weather-current-main"><span>현재 날씨 · {observed ? '관측값' : current ? '모델 추정' : '정보 대기'}</span><div><strong>{value(current?.temperature, '°')}</strong><span>{weatherLabel(current?.code ?? null)}</span></div></div><div className="weather-feels"><span>체감</span><strong>{value(current?.apparent, '°')}</strong></div></div>
+      {data.refresh?.switchState === 'scheduled' && <p className="weather-source-status">현재는 Open-Meteo를 사용해요. {dateLabel(ACCUWEATHER_SWITCH_DATE)}부터 AccuWeather로 자동 전환합니다.</p>}
+      {data.refresh?.switchState === 'connecting' && <p className="weather-source-status">AccuWeather 연결을 준비하고 있어요. 정상 자료를 받으면 이곳에 표시해요.</p>}
+      {data.refresh?.switchState === 'active' && <p className="weather-source-status">AccuWeather로 전환했어요. 15일 예보와 현재 관측을 표시합니다.</p>}
+      {data.refresh?.switchState === 'missing-key' && <p className="weather-source-status">AccuWeather 전환일이 지났지만 서버 API 키가 아직 연결되지 않았어요. 마지막으로 확인한 자료가 있으면 출처와 시각을 붙여 보여드려요.</p>}
+      {data.refresh?.switchState === 'unavailable' && <p className="weather-source-status">AccuWeather 응답이 지연되고 있어요. 확인 가능한 마지막 자료를 유지합니다.</p>}
+      <div className="weather-current"><WeatherSymbol code={current?.code ?? null}/><div className="weather-current-main"><span>현재 날씨 · {observed ? '관측값' : current ? '모델 추정' : '정보 대기'}</span><div><strong>{value(current?.temperature, '°')}</strong><span>{current?.summary || weatherLabel(current?.code ?? null)}</span></div></div><div className="weather-feels"><span>체감</span><strong>{value(current?.apparent, '°')}</strong></div></div>
       <p className="weather-model-time">{current ? `${dateLabel(current.time.slice(0,10))} ${current.time.slice(11,16)} 기준 · 대만 현지시간 · ${sourceLabel(currentSource)}${current.station ? ` / ${current.station}` : ''}${current.stale ? ' · 갱신 지연' : ''}` : '현재 날씨 정보가 제공되지 않았어요. 예보와 관측값은 별도로 표시해요.'}</p>
       {!compact && current?.fetchedAt && <p className="weather-source-time">현재 날씨 마지막 확인 {fetchedLabel(current.fetchedAt)} · 대만 시간</p>}
       {!compact && current && <dl className="weather-current-details"><div><dt>강수량</dt><dd>{observed && current.precipitation === null ? '미제공' : value(current.precipitation, ' mm', 1)}</dd><small>{observed ? '현재 구간 누적량 미제공' : '모델 직전 구간 누적'}</small></div><div><dt>풍속</dt><dd>{value(current.wind, ' km/h', 1)}</dd><small>{observed ? '관측 지점 기준' : '지상 10m 기준'}</small></div></dl>}
-      <div className="weather-trip"><h3>{dateLabel(date)} 여행일 예보</h3>{selected ? <><div className="weather-forecast-line"><span>{selected.summary || weatherLabel(selected.code)}</span><strong><span className="weather-low">{value(selected.minimum, '°')}</span><span aria-hidden="true"> / </span>{value(selected.maximum, '°')}</strong></div><p className="weather-rain">최저 / 최고 · {selectedSource === 'CWA' ? '12시간 구간 최대 강수확률' : '최대 강수확률'} {value(selected.rainProbability, '%')}</p><p className="weather-source-time">{sourceLabel(selectedSource)} · 마지막 확인 {fetchedLabel(selected.fetchedAt ?? data.fetchedAt)}{selected.stale ? ' · 갱신 지연' : ''}</p>{!compact && <p className="weather-hint">{selectedSource === 'CWA' ? '대만 시간 06시~다음 날 06시의 주야간 예보를 묶었어요. 강수확률은 12시간 구간 중 최댓값이며 하루 강수확률과 달라요.' : '하루 전체의 지역 예보예요. 방문 시각의 날씨와 다를 수 있어요.'}</p>}</> : <><p className="weather-unavailable">{data.availability === 'past' ? '예보 제공 기간이 지난 날짜예요.' : beyondWindow ? '아직 예보 제공 범위 밖이에요.' : '해당 날짜의 예보가 제공되지 않았어요.'}</p>{beyondWindow && <p className="weather-hint">최대 16일 예보 · {dateLabel(data.availableFrom)}경부터 확인 가능{compact ? '' : '해요. 제공되면 이곳에 자동으로 표시해요.'}</p>}{!beyondWindow && data.availability !== 'past' && data.provider === 'CWA' && <p className="weather-hint">대만 기상청은 최대 7일 예보를 제공해요. 16일 예보 연결이 복구되면 장기 예보도 확인할 수 있어요.</p>}{data.availability === 'past' && !compact && <p className="weather-hint">과거 관측 자료는 이 화면에서 제공하지 않아요.</p>}</>}</div>
+      <div className="weather-trip"><h3>{dateLabel(date)} 여행일 예보</h3>{selected ? <><div className="weather-forecast-line"><span>{selected.summary || weatherLabel(selected.code)}</span><strong><span className="weather-low">{value(selected.minimum, '°')}</span><span aria-hidden="true"> / </span>{value(selected.maximum, '°')}</strong></div><p className="weather-rain">최저 / 최고 · {selectedSource === 'AccuWeather' ? '낮·밤 중 높은 강수확률' : '최대 강수확률'} {value(selected.rainProbability, '%')}</p><p className="weather-source-time">{sourceLabel(selectedSource)} · 마지막 확인 {fetchedLabel(selected.fetchedAt ?? data.fetchedAt)}{selected.stale ? ' · 갱신 지연' : ''}</p>{!compact && <p className="weather-hint">{selectedSource === 'AccuWeather' ? '하루 낮·밤 예보 중 높은 강수확률을 표시해요. 방문 시각의 날씨와 다를 수 있어요.' : '하루 전체의 지역 예보예요. 방문 시각의 날씨와 다를 수 있어요.'}</p>}</> : <><p className="weather-unavailable">{data.availability === 'past' ? '예보 제공 기간이 지난 날짜예요.' : beyondWindow ? '아직 예보 제공 범위 밖이에요.' : '해당 날짜의 예보가 제공되지 않았어요.'}</p>{beyondWindow && <p className="weather-hint">최대 {data.provider === 'AccuWeather' ? '15일' : '16일'} 예보 · {dateLabel(data.availableFrom)}경부터 확인 가능{compact ? '' : '해요. 제공되면 이곳에 자동으로 표시해요.'}</p>}{data.availability === 'past' && !compact && <p className="weather-hint">과거 관측 자료는 이 화면에서 제공하지 않아요.</p>}</>}</div>
       {!compact && hasWeather && <p className="weather-fetched">마지막 확인 {fetchedLabel(data.fetchedAt)} · 대만 시간{data.forecastEnd ? ` / 예보 ~${dateLabel(data.forecastEnd)}` : ''}</p>}
-      {!compact && <p className="weather-hint weather-range">Open-Meteo 최대 16일 · 대만 기상청 최대 7일 / 강수확률 최대 3일. 먼 날짜의 예보는 바뀔 수 있어요.</p>}
+      {!compact && <p className="weather-hint weather-range">Open-Meteo 최대 16일 · {dateLabel(ACCUWEATHER_SWITCH_DATE)}부터 AccuWeather 최대 15일. 먼 날짜의 예보는 바뀔 수 있어요.</p>}
     </>}
-    {sources.size > 0 && <p className="weather-attribution">{sources.has('Open-Meteo') && <><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></>}{sources.has('CWA') && <>{sources.has('Open-Meteo') && <span aria-hidden="true" className="weather-source-divider"> / </span>}<a href="https://opendata.cwa.gov.tw/" target="_blank" rel="noreferrer">대만 중앙기상서 CWA</a></>}<span>출처·확인 시각은 각 정보에 표시 · 한국어 표현·반올림</span></p>}
+    {sources.size > 0 && <p className="weather-attribution">{sources.has('Open-Meteo') && <><a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></>}{sources.has('AccuWeather') && <>{sources.has('Open-Meteo') && <span aria-hidden="true" className="weather-source-divider"> / </span>}<a href="https://developer.accuweather.com/" target="_blank" rel="noreferrer">AccuWeather</a></>}<span>출처·확인 시각은 각 정보에 표시 · 한국어 표현·반올림</span></p>}
     {!compact && <p className="weather-privacy">여행지 대표 좌표만 조회해요. 휴대폰 위치 권한이나 현재 위치 전송은 필요 없어요.</p>}
   </section>;
 }

@@ -29,6 +29,13 @@
       "when": 1792986577433,
       "tag": "0003_cheerful_karma",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792996622920,
+      "tag": "0004_great_the_stranger",
+      "breakpoints": true
     }
   ]
 }
