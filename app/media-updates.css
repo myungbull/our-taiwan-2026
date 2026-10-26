@@ -59,6 +59,10 @@
 .handoff-actions{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 10px}
 .handoff-actions button,.handoff-actions a,.higgsfield-handoff .handoff-return{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 12px;box-sizing:border-box;border:1px solid #cfadb5;border-radius:11px;background:#fffcf9;color:#814551;font-size:12px;line-height:1.5;font-weight:650;text-decoration:none;cursor:pointer}
 .handoff-actions a{background:#e9d8d9}
+.handoff-chatgpt-direct{display:grid;gap:10px;padding:13px;margin:12px 0;border:1px solid #dec8c7;border-radius:13px;background:#fffaf7}
+.handoff-chatgpt-direct p{display:grid;gap:4px;margin:0;color:#654751;font-size:12px;line-height:1.55}
+.handoff-chatgpt-direct p span{color:#806c73;font-size:11px}
+.handoff-chatgpt-direct>a{display:inline-flex;min-height:42px;align-items:center;justify-content:center;padding:9px 12px;border-radius:10px;background:#94505d;color:#fff;font-size:12px;font-weight:700;text-decoration:none}
 .higgsfield-handoff .handoff-return{width:100%;margin:0 0 12px;background:#94505d;border-color:#94505d;color:#fff}
 .handoff-actions button:disabled{opacity:.5;cursor:wait}
 .higgsfield-handoff .handoff-footnote{font-size:11px;line-height:1.7}
