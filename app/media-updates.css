@@ -44,6 +44,7 @@
 .handoff-template{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 16px}
 .handoff-template button{min-height:40px;padding:8px 12px;border:1px solid #dbc0c5;border-radius:999px;background:#fffaf8;color:#77505c;font-size:12px;font-weight:650;cursor:pointer}
 .handoff-template button[aria-pressed=true]{border-color:#94505d;background:#94505d;color:#fff}
+.handoff-template-description{margin:-8px 0 14px!important;color:#806c73!important;font-size:11px!important;line-height:1.55!important}
 .handoff-share{margin:16px 0 8px}
 .handoff-share-primary{display:flex;width:100%;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;border:1px solid #94505d;border-radius:12px;background:#94505d;color:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .handoff-share-primary:disabled{opacity:.55;cursor:wait}
