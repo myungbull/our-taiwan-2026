@@ -117,6 +117,8 @@ export default function WeatherPanel({ date, compact = false }: { date: string; 
     {loading && <p className="weather-loading" role="status">{hasWeather ? '저장된 날씨를 보면서 최신 정보를 확인하고 있어요.' : '최신 지역 날씨를 확인하고 있어요.'}</p>}
     {error && <div className="weather-error" role="alert"><p>{error}</p><button type="button" onClick={() => setAttempt(number => number + 1)}>다시 시도</button></div>}
     {data && <>
+      {!hasWeather && data.refresh && data.refresh.primaryFailures > 0 && !error && <p className="weather-source-status" role="status">날씨 제공기관의 응답이 지연되고 있어요. 정상 자료를 받으면 여기에 표시해요.</p>}
+      {!loading && data.refresh?.nextAttemptAt && data.refresh.primaryFailures > 0 && <p className="weather-source-time">다시 확인 가능한 시각 {fetchedLabel(data.refresh.nextAttemptAt)} · 대만 시간</p>}
       {delayed && <p className="weather-stale" role="status">갱신 지연 · 마지막 확인 {fetchedLabel(data.fetchedAt)} · 대만 시간</p>}
       {data.refresh?.fallback === 'active' && <p className="weather-source-status">대만 기상청 예보로 연결했어요. 장기 예보는 마지막 정상 정보를 함께 표시해요.</p>}
       {data.refresh?.fallback === 'missing-key' && <p className="weather-source-status">대만 기상청 연결 설정이 필요해요. 제공 가능한 마지막 정상 정보를 유지해요.</p>}
