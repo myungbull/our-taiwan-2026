@@ -1,0 +1,5 @@
+# Local-only mock member identities. Never use production addresses here.
+ALLOWED_EMAILS=seedy@sites.test,partner@sites.test
+
+# Optional until AccuWeather is activated. Supply a local key only in .dev.vars.
+ACCUWEATHER_API_KEY=
