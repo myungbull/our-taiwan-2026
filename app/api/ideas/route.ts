@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { requireAllowedMember, isResponse, sameOrigin, travelerLabel } from '../_lib/auth';
 import { suggestIdeaSlots } from '../../idea-planner';
+import { IDEA_VOTE_SLOT, SCHEDULE_SLOT_PREFIX, SCHEDULE_USER, ideaHasTwoApprovals, resolveIdeaApproval, selectedScheduleSlotId } from '../../idea-state';
 import { days } from '../../travel-data';
 
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,8 @@ export async function GET() {
     }));
     const ideas = (ideasResult.results ?? []).map((row: any) => {
       const suggestions = JSON.parse(row.suggestions || '[]') as Array<Record<string, unknown> & { id: string }>;
+      const ideaVotes = votes.filter((vote) => vote.ideaId === row.id);
+      const ideaApproval = resolveIdeaApproval(ideaVotes, row.created_by, member.userId);
       const slotVotes = suggestions.map((slot) => {
         const matching = votes.filter((vote) => vote.ideaId === row.id && vote.slotId === slot.id);
         const viewerVote = matching.find((vote) => vote.userId === member.userId)?.response ?? null;
@@ -36,6 +39,7 @@ export async function GET() {
           approved: yesVotes.some((a) => yesVotes.some((b) => a.userId !== b.userId)),
         };
       });
+      const selectedSlotId = selectedScheduleSlotId(ideaVotes, ideaApproval.approved);
       return {
         id: row.id,
         title: row.title,
@@ -46,6 +50,8 @@ export async function GET() {
         preferredDate: row.preferred_date,
         suggestions,
         slotVotes,
+        ideaApproval,
+        selectedSlotId,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -89,6 +95,51 @@ export async function POST(request: Request) {
         await statement.run();
       }
       return Response.json({ id, suggestions });
+    }
+    if (action === 'ideaVote') {
+      const ideaId = cleanText(body.ideaId, 36);
+      const response = body.response;
+      if (!idPattern.test(ideaId) || (response !== 'yes' && response !== 'no')) return Response.json({ error: '아이디어 찬성 상태를 확인해 주세요.' }, { status: 400 });
+      const exists = await env.DB!.prepare('SELECT id FROM ideas WHERE id=?').bind(ideaId).first<{ id: string }>();
+      if (!exists) return Response.json({ error: '아이디어를 찾을 수 없습니다.' }, { status: 404 });
+      const now = new Date().toISOString();
+      const upsertVote = env.DB!.prepare(`INSERT INTO idea_votes (idea_id,slot_id,user_id,response,updated_at) VALUES (?,?,?,?,?)
+        ON CONFLICT(idea_id,slot_id,user_id) DO UPDATE SET response=excluded.response,updated_at=excluded.updated_at`)
+        .bind(ideaId, IDEA_VOTE_SLOT, member.userId, response, now);
+      if (response === 'no') {
+        await env.DB!.batch([
+          upsertVote,
+          env.DB!.prepare('DELETE FROM idea_votes WHERE idea_id=? AND user_id=?').bind(ideaId, SCHEDULE_USER),
+        ]);
+      } else {
+        await upsertVote.run();
+      }
+      return Response.json({ ok: true });
+    }
+    if (action === 'schedule') {
+      const ideaId = cleanText(body.ideaId, 36);
+      const slotId = cleanText(body.slotId, 180);
+      const selected = body.selected === true;
+      if (!idPattern.test(ideaId) || !slotId) return Response.json({ error: '일정 후보를 확인해 주세요.' }, { status: 400 });
+      const idea = await env.DB!.prepare('SELECT created_by, suggestions FROM ideas WHERE id=?').bind(ideaId).first<{ created_by: string; suggestions: string }>();
+      if (!idea) return Response.json({ error: '아이디어를 찾을 수 없습니다.' }, { status: 404 });
+      const slots = JSON.parse(idea.suggestions || '[]') as Array<{ id: string }>;
+      if (!slots.some((slot) => slot.id === slotId)) return Response.json({ error: '현재 제안 목록에 없는 시간대입니다. 새로고침 후 다시 선택해 주세요.' }, { status: 409 });
+      if (selected) {
+        const approvalRows = await env.DB!.prepare('SELECT user_id, response FROM idea_votes WHERE idea_id=? AND slot_id=?').bind(ideaId, IDEA_VOTE_SLOT).all<{ user_id: string; response: 'yes' | 'no' }>();
+        const approvals = (approvalRows.results ?? []).map((vote) => ({ slotId: IDEA_VOTE_SLOT, userId: vote.user_id, response: vote.response }));
+        if (!ideaHasTwoApprovals(approvals, idea.created_by)) return Response.json({ error: '두 사람 모두 찬성한 아이디어만 최종 일정으로 선택할 수 있습니다.' }, { status: 409 });
+        await env.DB!.batch([
+          env.DB!.prepare('DELETE FROM idea_votes WHERE idea_id=? AND user_id=?').bind(ideaId, SCHEDULE_USER),
+          env.DB!.prepare(`INSERT INTO idea_votes (idea_id,slot_id,user_id,response,updated_at) VALUES (?,?,?,?,?)
+            ON CONFLICT(idea_id,slot_id,user_id) DO UPDATE SET response=excluded.response,updated_at=excluded.updated_at`)
+            .bind(ideaId, `${SCHEDULE_SLOT_PREFIX}${slotId}`, SCHEDULE_USER, 'yes', new Date().toISOString()),
+        ]);
+      } else {
+        await env.DB!.prepare('DELETE FROM idea_votes WHERE idea_id=? AND slot_id=? AND user_id=?')
+          .bind(ideaId, `${SCHEDULE_SLOT_PREFIX}${slotId}`, SCHEDULE_USER).run();
+      }
+      return Response.json({ ok: true });
     }
     if (action === 'vote') {
       const ideaId = cleanText(body.ideaId, 36);

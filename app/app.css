@@ -319,6 +319,35 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .proposal .links { margin-top: 7px; gap: 2px 12px; }
 .proposal .links>a { font-size: 11px; }
 .proposal .links>button { font-size: 12px; font-weight: 650; }
+.waiting-title { margin-top: 25px; }
+.schedule-waitlist { margin: -4px 0 22px; padding: 16px; border: 1px solid #e7d9d1; border-radius: 15px; background: #f5efea; }
+.schedule-waitlist>p { margin: 0 0 12px; color: #846f73; font-size: 12px; line-height: 1.7; }
+.waitlist-empty { padding: 17px 12px; border: 1px dashed #d7c2c1; border-radius: 11px; color: #897a7d; font-size: 12px; text-align: center; }
+.waitlist-item { padding: 14px 0 4px; border-top: 1px solid #e4d7d1; }
+.waitlist-item + .waitlist-item { margin-top: 12px; }
+.waitlist-item-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+.waitlist-item-heading>div { min-width: 0; }
+.waitlist-item-heading small { color: #967984; font-size: 10px; }
+.waitlist-item-heading h3 { margin: 2px 0 1px; font-size: 15px; }
+.waitlist-item-heading>div>span { color: #83777a; font-size: 11px; }
+.waitlist-slot { margin-top: 12px; padding: 12px; border: 1px solid #e3d5cf; border-radius: 12px; background: #fffdfa; }
+.waitlist-slot-selected { border-color: #9aa993; background: #f0f3ec; }
+.waitlist-slot>.row { align-items: flex-start; }
+.waitlist-slot>.row>strong { font-size: 12px; }
+.waitlist-slot>.row>.badge { font-size: 10px; }
+.waitlist-slot>p { margin-top: 6px; color: #84777a; font-size: 11px; line-height: 1.65; }
+.waitlist-slot-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.waitlist-slot-actions>a { display: inline-flex; align-items: center; min-height: 44px; color: var(--primary); font-size: 11px; font-weight: 600; }
+.waitlist-slot-actions>button { min-height: 44px; padding: 8px 11px; border: 1px solid #c89aa5; border-radius: 10px; background: #fffdfa; color: var(--primary); font-size: 11px; font-weight: 650; }
+.waitlist-slot-selected .waitlist-slot-actions>button { border-color: #91a088; background: #e1e9dc; color: #526b59; }
+.idea-approval-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 15px; padding: 10px 11px; border-radius: 12px; background: #f5efeb; }
+.idea-vote-status { display: flex; flex-wrap: wrap; gap: 5px 10px; min-width: 0; }
+.idea-vote-status>span { color: #908184; font-size: 10px; }
+.idea-vote-status>.vote-yes { color: #5c765f; font-weight: 700; }
+.idea-vote-button { flex: none; min-width: 92px; min-height: 44px; padding: 8px 10px; border: 1px solid #c89aa5; border-radius: 10px; background: #fffcfa; color: var(--primary); font-size: 11px; font-weight: 650; }
+.idea-vote-active { border-color: #91a088; background: #e6ece4; color: #526b59; }
+.idea-approval-state { display: inline-block; margin: 7px 0 0 3px; color: #927d82; font-size: 10px; }
+.idea-approval-state.approved { color: #5c765f; font-weight: 650; }
 .photo-date-tabs { margin-bottom: 18px; }
 .photo-date-tabs button { min-height: 68px; gap: 1px; }
 .photo-date-tabs small { color: inherit; font-size: 12px; }

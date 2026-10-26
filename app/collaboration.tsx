@@ -18,7 +18,8 @@ type Slot = {
   timingUncertainty: string | null;
 };
 type SlotVote = { slotId: string; votes: Array<{ label: string; response: 'yes' | 'no' }>; myVote: 'yes' | 'no' | null; approved: boolean };
-type Idea = { id: string; title: string; url: string; note: string; place: string; durationMinutes: number; preferredDate: string | null; suggestions: Slot[]; slotVotes: SlotVote[]; createdAt: string; updatedAt: string };
+type IdeaApproval = { votes: Array<{ label: string; response: 'yes' | 'no' | null }>; myVote: 'yes' | 'no' | null; approved: boolean };
+type Idea = { id: string; title: string; url: string; note: string; place: string; durationMinutes: number; preferredDate: string | null; suggestions: Slot[]; slotVotes: SlotVote[]; ideaApproval: IdeaApproval; selectedSlotId: string | null; createdAt: string; updatedAt: string };
 type ScheduleAddition = { id: string; title: string; place: string; note: string; date: string; time: string; durationMinutes: number; mapUrl: string };
 export type PhotoEntry = { id: string; date: string; place: string; caption: string; uploader: string; uploadedAt: string; byteSize: number; contentType: string; imageUrl: string };
 export type CollaborationSection = 'ideas' | 'photos' | 'nearby';
@@ -278,11 +279,12 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
     window.setTimeout(() => document.querySelector<HTMLFormElement>('.photo-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   }
 
-  const publishApproved = useCallback((rows: Idea[]) => {
-    onScheduleChange(rows.flatMap((idea) => idea.suggestions.flatMap((slot) => {
-      const vote = idea.slotVotes.find((entry) => entry.slotId === slot.id);
-      return vote?.approved ? [{ id: `${idea.id}-${slot.id}`, title: idea.title, place: idea.place, note: idea.note, date: slot.date, time: slot.time, durationMinutes: idea.durationMinutes, mapUrl: slot.mapUrl }] : [];
-    })));
+  const publishSelected = useCallback((rows: Idea[]) => {
+    onScheduleChange(rows.flatMap((idea) => {
+      if (!idea.ideaApproval.approved || !idea.selectedSlotId) return [];
+      const slot = idea.suggestions.find((entry) => entry.id === idea.selectedSlotId);
+      return slot ? [{ id: `${idea.id}-${slot.id}`, title: idea.title, place: idea.place, note: idea.note, date: slot.date, time: slot.time, durationMinutes: idea.durationMinutes, mapUrl: slot.mapUrl }] : [];
+    }));
   }, [onScheduleChange]);
 
   const refreshIdeas = useCallback(async () => {
@@ -290,10 +292,10 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
       const response = await fetch('/api/ideas', { cache: 'no-store' });
       if (!response.ok) throw new Error('공동 공간에 접속할 수 없습니다. 사이트 초대와 로그인을 확인해 주세요.');
       const data = await response.json() as { ideas: Idea[]; viewerLabel: string };
-      setIdeas(data.ideas); setViewerLabel(data.viewerLabel); setIdeaError(''); publishApproved(data.ideas);
+      setIdeas(data.ideas); setViewerLabel(data.viewerLabel); setIdeaError(''); publishSelected(data.ideas);
     } catch (error) { setIdeaError(error instanceof Error ? error.message : '공유 정보를 불러오지 못했습니다.'); }
     finally { setIdeaLoading(false); }
-  }, [publishApproved]);
+  }, [publishSelected]);
 
   useEffect(() => {
     void refreshIdeas();
@@ -411,7 +413,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
     finally { setIdeaSaving(false); }
   }
 
-  async function changeIdea(action: 'vote' | 'delete', data: Record<string, unknown>) {
+  async function changeIdea(action: 'ideaVote' | 'schedule' | 'vote' | 'delete', data: Record<string, unknown>) {
     setIdeaError('');
     try {
       const response = await fetch('/api/ideas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, ...data }) });
@@ -502,7 +504,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
     </nav></>}
 
     {section === 'ideas' && <>
-      <section className="collab-intro"><span>01 / IDEAS</span><h2>가고 싶은 곳을 모아두고,<br/>둘이 함께 날짜를 정해요.</h2><p>링크와 메모를 저장하면 현재 확정 일정 사이의 후보 시간을 보여줍니다. 두 사람 모두 같은 시간대에 찬성해야 일정에 반영됩니다.</p></section>
+      <section className="collab-intro"><span>01 / IDEAS</span><h2>가고 싶은 곳을 모아두고,<br/>둘이 함께 날짜를 정해요.</h2><p>올린 사람은 처음에 찬성 상태예요. 상대방이 찬성하면 대기목록으로 옮겨지고, 마지막으로 선택한 시간만 확정 일정에 나타납니다.</p></section>
       <form className="idea-form" onSubmit={submitIdea}>
         <div className="row"><h2>{editingIdeaId ? '아이디어 수정' : '하고 싶은 것 추가'}</h2><span className="badge">공동 보관함</span></div>
         <label>제목<input required maxLength={100} value={ideaForm.title} onChange={(event) => setIdeaForm({ ...ideaForm, title: event.target.value })} placeholder="예: 용캉제 망고빙수" /></label>
@@ -510,29 +512,47 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
         <div className="row idea-fields"><label>예상 체류시간<select value={ideaForm.durationMinutes} onChange={(event) => setIdeaForm({ ...ideaForm, durationMinutes: event.target.value })}>{[30,45,60,90,120,180].map((value) => <option value={value} key={value}>{value}분</option>)}</select></label><label>희망 날짜<select value={ideaForm.preferredDate} onChange={(event) => setIdeaForm({ ...ideaForm, preferredDate: event.target.value })}><option value="">날짜 미정</option>{photoDays.map((day) => <option value={day.date} key={day.date}>{day.title}</option>)}</select></label></div>
         <label>링크<input type="url" maxLength={500} value={ideaForm.url} onChange={(event) => setIdeaForm({ ...ideaForm, url: event.target.value })} placeholder="https://… · 선택" /></label>
         <label>간단한 메모<textarea maxLength={500} rows={2} value={ideaForm.note} onChange={(event) => setIdeaForm({ ...ideaForm, note: event.target.value })} placeholder="먹고 싶은 메뉴, 꼭 보고 싶은 것 등" /></label>
-        <p className="form-hint">저장된 링크와 메모는 두 허용 계정만 볼 수 있어요. 예약번호, 카드 정보, 여권 정보는 적지 마세요.</p>
+        <p className="form-hint">아이디어를 올리면 내 찬성으로 시작하고, 상대방의 찬성을 기다려요. 저장된 내용은 두 허용 계정만 볼 수 있어요.</p>
         {ideaError && section === 'ideas' && <p className="error" role="alert">{ideaError}</p>}
         <div className="row form-actions"><button className="primary" type="submit" disabled={ideaSaving}>{ideaSaving ? '저장 중…' : editingIdeaId ? '수정 저장' : '보관함에 추가'}</button>{editingIdeaId && <button type="button" className="quiet-button" onClick={() => { setEditingIdeaId(null); setIdeaForm({ title: '', url: '', note: '', place: '', durationMinutes: '45', preferredDate: '' }); }}>취소</button>}</div>
       </form>
+      <div className="sectionline waiting-title"><h2>일정 반영 대기</h2><span>{ideas.filter((idea) => idea.ideaApproval.approved).length}개</span></div>
+      <section className="schedule-waitlist" aria-label="둘 다 찬성한 아이디어의 일정 후보">
+        <p>둘 다 찬성한 아이디어예요. 날짜와 시간을 골라야 확정 일정에 반영됩니다.</p>
+        {ideas.filter((idea) => idea.ideaApproval.approved).length === 0 ? <div className="waitlist-empty">두 사람 모두 찬성한 장소가 생기면 여기에 모여요.</div> : ideas.filter((idea) => idea.ideaApproval.approved).map((idea) => <article className="waitlist-item" key={idea.id}>
+          <div className="waitlist-item-heading"><div><small>함께 가기로 한 곳</small><h3>{idea.title}</h3><span>{idea.place} · 약 {idea.durationMinutes}분</span></div><span className="status-pill complete">둘 다 찬성</span></div>
+          {idea.suggestions.length === 0 ? <p className="form-hint">현재 일정에서 추천 가능한 시간이 없어요. 희망 날짜나 체류시간을 수정해 보세요.</p> : idea.suggestions.map((slot) => {
+            const isSelected = idea.selectedSlotId === slot.id;
+            return <div className={'waitlist-slot ' + (isSelected ? 'waitlist-slot-selected' : '')} key={slot.id}>
+              <div className="row"><strong>{dateLabel(slot.date)} · {slot.time}</strong><span className={'badge ' + (isSelected ? 'confirmed' : '')}>{isSelected ? '최종 선택' : slot.conflict.hasConflict ? '일정 확인 필요' : '여유 후보'}</span></div>
+              <p>{slot.conflict.note}</p><p>예상 이동 약 {slot.estimatedTravelMinutes}분 · 체류 {slot.durationMinutes}분 · 이동시간은 추정</p><p>{slot.reason}</p>
+              {slot.timingUncertainty && <p className="form-hint">{slot.timingUncertainty}</p>}
+              <div className="waitlist-slot-actions"><a href={slot.mapUrl} target="_blank" rel="noreferrer">이동 동선 지도 ↗</a><button type="button" aria-pressed={isSelected} onClick={() => void changeIdea('schedule', { ideaId: idea.id, slotId: slot.id, selected: !isSelected })}>{isSelected ? '일정에 반영됨 · 취소' : '이 시간으로 최종 선택'}</button></div>
+            </div>;
+          })}
+        </article>)}
+      </section>
       <div className="sectionline"><h2>우리의 보관함</h2><span>{ideas.length}개</span></div>
       {ideaLoading ? <div className="empty-state">공동 보관함을 불러오는 중…</div> : ideas.length === 0 ? <div className="empty-state"><strong>아직 담긴 장소가 없어요.</strong><p>첫 번째로 가고 싶은 곳을 적어 두세요.</p></div> : <div className="idea-list">{ideas.map((idea) => <article className="idea-item" key={idea.id}>
         <div className="row idea-title"><div><small>{idea.preferredDate ? dateLabel(idea.preferredDate) : '희망 날짜 미정'} · 약 {idea.durationMinutes}분</small><h3>{idea.title}</h3></div><span className="badge">{idea.place}</span></div>
         {idea.note && <p>{idea.note}</p>}
         <div className="links">{idea.url && <a href={idea.url} target="_blank" rel="noreferrer">참고 링크 ↗</a>}<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(idea.place)}`} target="_blank" rel="noreferrer">Google 지도에서 찾기 ↗</a><button onClick={() => beginEdit(idea)}>수정</button><button onClick={() => { if (window.confirm('이 아이디어와 찬성 기록을 모두 삭제할까요?')) void changeIdea('delete', { ideaId: idea.id }); }}>삭제</button></div>
-        <div className="proposal-heading"><strong>일정에 넣기 좋은 시간</strong><span>추천은 추정 · 둘 다 승인 전</span></div>
-        {idea.suggestions.length === 0 ? <p className="form-hint">현재 확정 일정 사이에 무리 없이 넣을 후보를 찾지 못했어요. 체류시간을 줄이거나 장소를 더 정확히 적어 보세요. 11/19 투어 시간은 확정 전이라 그날은 추천에서 제외합니다. 단수이 일정은 여행 계획에서 제외되어 있어요.</p> : idea.suggestions.map((slot) => {
-          const vote = idea.slotVotes.find((entry) => entry.slotId === slot.id);
-          const voteLabel = ['나', '동행인'].map((label) => { const response = vote?.votes.find((entry) => entry.label === label)?.response; return `${label} ${response === 'yes' ? '찬성' : response === 'no' ? '보류' : '미응답'}`; }).join(' · ');
-          return <div className={'proposal ' + (vote?.approved ? 'proposal-approved' : '')} key={slot.id}>
-            <div className="row"><strong>{dateLabel(slot.date)} · {slot.time}</strong><span className={'badge ' + (vote?.approved ? 'confirmed' : '')}>{vote?.approved ? '둘 다 승인 · 일정 반영' : voteLabel}</span></div>
-            <p>{slot.conflict.note}</p><p>예상 이동 약 {slot.estimatedTravelMinutes}분 · 체류 {slot.durationMinutes}분 · 이동시간은 추정</p>
-            <p>{slot.reason}</p>{slot.timingUncertainty && <p className="form-hint">{slot.timingUncertainty}</p>}
-            <div className="links"><a href={slot.mapUrl} target="_blank" rel="noreferrer">출발지와 이동 동선 지도 ↗</a><button disabled={vote?.myVote === 'yes'} onClick={() => void changeIdea('vote', { ideaId: idea.id, slotId: slot.id, response: 'yes' })}>이 시간에 찬성</button><button disabled={vote?.myVote === 'no'} onClick={() => void changeIdea('vote', { ideaId: idea.id, slotId: slot.id, response: 'no' })}>보류</button></div>
-          </div>;
-        })}
+        <div className="idea-approval-row">
+          <div className="idea-vote-status" aria-label="두 사람의 찬성 상태">{idea.ideaApproval.votes.map((entry) => <span className={entry.response === 'yes' ? 'vote-yes' : ''} key={entry.label}>{entry.label} · {entry.response === 'yes' ? '찬성' : entry.response === 'no' ? '보류' : '미응답'}</span>)}</div>
+          <button type="button" className={idea.ideaApproval.myVote === 'yes' ? 'idea-vote-button idea-vote-active' : 'idea-vote-button'} aria-pressed={idea.ideaApproval.myVote === 'yes'} onClick={() => void changeIdea('ideaVote', { ideaId: idea.id, response: idea.ideaApproval.myVote === 'yes' ? 'no' : 'yes' })}>{idea.ideaApproval.myVote === 'yes' ? '✓ 찬성 · 끄기' : '♡ 찬성'}</button>
+        </div>
+        <span className={'idea-approval-state ' + (idea.ideaApproval.approved ? 'approved' : '')}>{idea.ideaApproval.approved ? '둘 다 찬성 · 일정 반영 대기 중' : '두 사람의 찬성이 모이면 일정 대기목록으로 이동'}</span>
+        {!idea.ideaApproval.approved && <><div className="proposal-heading"><strong>일정에 넣기 좋은 시간</strong><span>추천은 추정 · 최종 선택 전</span></div>
+          {idea.suggestions.length === 0 ? <p className="form-hint">현재 확정 일정 사이에 무리 없이 넣을 후보를 찾지 못했어요. 체류시간을 줄이거나 장소를 더 정확히 적어 보세요. 11/19 투어 시간은 확정 전이라 그날은 추천에서 제외합니다. 단수이 일정은 여행 계획에서 제외되어 있어요.</p> : idea.suggestions.map((slot) => <div className="proposal" key={slot.id}>
+            <div className="row"><strong>{dateLabel(slot.date)} · {slot.time}</strong><span className="badge">{slot.conflict.hasConflict ? '일정 확인 필요' : '후보'}</span></div>
+            <p>{slot.conflict.note}</p><p>예상 이동 약 {slot.estimatedTravelMinutes}분 · 체류 {slot.durationMinutes}분 · 이동시간은 추정</p><p>{slot.reason}</p>
+            {slot.timingUncertainty && <p className="form-hint">{slot.timingUncertainty}</p>}
+            <div className="links"><a href={slot.mapUrl} target="_blank" rel="noreferrer">출발지와 이동 동선 지도 ↗</a></div>
+          </div>)}
+        </>}
       </article>)}</div>}
       {ideaError && <p className="error" role="alert">{ideaError}</p>}
-      <aside className="notice"><b>동의 방식</b><p>각 시간대는 두 계정이 모두 찬성한 뒤에만 일자별 일정에 ‘공동 승인’ 항목으로 추가됩니다. 시간 후보와 이동 소요는 실제 교통정보가 아닌 계획용 추정입니다.</p></aside>
+      <aside className="notice"><b>일정 반영 기준</b><p>아이디어를 올린 사람의 찬성은 기본으로 표시됩니다. 상대방이 찬성하면 대기목록에 들어가며, 여기서 최종 선택한 시간만 확정 일정에 반영됩니다. ‘일정에 반영됨 · 취소’를 눌러 언제든 뺄 수 있어요. 이동 시간과 후보는 계획용 추정입니다.</p></aside>
     </>}
 
     {section === 'photos' && <>
