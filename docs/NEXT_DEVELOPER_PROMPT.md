@@ -7,7 +7,7 @@
 
 저장소: https://github.com/myungbull/our-taiwan-2026
 운영 사이트: Our Taiwan 2026, 현재 버전 18
-현재 공개 소스 기준: 98e48cdb429710b871628047d80a1ec24f0717e4
+항상 GitHub `main`의 최신 커밋에서 시작하세요. 앱 기능 기준 커밋은 98e48cdb429710b871628047d80a1ec24f0717e4이며, 이후 인수인계 문서와 CI 설정이 추가됐습니다.
 
 시작 전에 README.md, docs/DEVELOPER_HANDOFF.md, docs/OPEN_ITEMS.md, docs/DEPLOYMENT.md를 읽으세요. 저장소 기록과 현재 Sites 프로젝트 상태를 대조하고, 문서와 다르면 실제 상태를 우선해 문서를 갱신하세요.
 
