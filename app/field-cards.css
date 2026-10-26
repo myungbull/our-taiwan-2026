@@ -1,0 +1,54 @@
+.field-cards { --field-primary: #934758; --field-line: #e8deda; --field-muted: #82767b; }
+.field-heading { margin: 2px 0 20px; }
+.field-eyebrow { color: var(--field-primary); font-size: 12px; font-weight: 650; margin-bottom: 5px; }
+.field-heading>p:last-child { margin-top: 7px; color: var(--field-muted); font-size: 13px; }
+.field-tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 5px; padding: 5px; margin-bottom: 20px; border: 1px solid var(--field-line); border-radius: 14px; background: #f0eae6; }
+.field-tabs a { display: grid; place-items: center; min-height: 44px; border-radius: 10px; color: var(--field-muted); font-size: 14px; font-weight: 600; }
+.field-tabs a[aria-current=page] { background: #fffefc; color: var(--field-primary); box-shadow: 0 2px 8px #503a4406; }
+.field-select-label { display: grid; gap: 7px; margin: 0 0 16px; font-size: 12px; font-weight: 600; color: var(--field-muted); }
+.field-select-label select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--field-line); border-radius: 11px; background: #fffefc; color: #302c2d; font-size: 15px; }
+.field-notice,.field-pending { padding: 15px; margin-bottom: 16px; border-radius: 12px; background: #f3e3e5; color: #74414e; font-size: 13px; }
+.field-notice p,.field-pending p { margin-top: 5px; font-size: 12px; line-height: 1.75; }
+.field-destination { position: relative; padding: 23px 20px; border: 1px solid var(--field-line); border-radius: 18px; background: #fffefc; overflow-wrap: anywhere; }
+.field-status { display: inline-flex; align-items: center; padding: 5px 9px; border: 1px solid #ce9ba6; border-radius: 20px; color: var(--field-primary); font-size: 12px; line-height: 1.5; }
+.field-status-confirmed { border-color: #d5dfd3; background: #e6ece4; color: #5e7765; }
+.field-destination-date { margin: 17px 0 13px; color: var(--field-muted); font-size: 12px; }
+.field-destination h2 { margin: 0; white-space: pre-line; font-family: -apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei','Apple SD Gothic Neo',sans-serif; font-size: clamp(25px,7vw,34px); font-weight: 700; line-height: 1.55; letter-spacing: -.4px; }
+.field-address { margin-top: 16px; font-size: 16px; line-height: 1.8; }
+.field-candidate-watermark { margin-top: 16px; padding: 8px 12px; width: fit-content; border: 1px dashed #ba8794; color: var(--field-primary); font-size: 13px; font-weight: 700; }
+.field-details { padding: 16px 0 0; margin: 20px 0 0; border-top: 1px solid var(--field-line); list-style: none; }
+.field-details li { margin-bottom: 7px; color: #554b50; font-size: 13px; }
+.field-card-note { margin-top: 12px; color: var(--field-muted); font-size: 12px; line-height: 1.75; }
+.field-actions { display: flex; gap: 8px; margin-top: 12px; }
+.field-action { display: inline-flex; flex: 1; justify-content: center; align-items: center; min-height: 48px; padding: 11px 12px; border: 1px solid #c99ca6; border-radius: 11px; background: #fffefc; color: var(--field-primary); font-size: 13px; font-weight: 650; line-height: 1.5; text-align: center; }
+.field-action-primary { background: var(--field-primary); border-color: var(--field-primary); color: white; }
+.field-action-wide { width: 100%; margin-top: 12px; }
+.field-voice-hint { margin-top: 9px; color: var(--field-muted); font-size: 12px; line-height: 1.75; }
+.field-copy-fallback { display: grid; gap: 6px; margin-top: 14px; color: var(--field-muted); font-size: 12px; }
+.field-copy-fallback textarea,.field-dialog-copy { width: 100%; padding: 12px; border: 1px solid var(--field-line); border-radius: 10px; background: #fffefc; font-size: 16px; line-height: 1.6; resize: vertical; }
+.field-save { padding-top: 24px; margin-top: 25px; border-top: 1px solid var(--field-line); }
+.field-save h2 { margin-bottom: 8px; font-size: 17px; }
+.field-save>p { color: var(--field-muted); font-size: 12px; line-height: 1.85; }
+.field-confirm { display: flex; align-items: center; gap: 9px; min-height: 48px; margin-top: 12px; font-size: 13px; line-height: 1.6; }
+.field-confirm input { width: 21px; height: 21px; flex: none; accent-color: var(--field-primary); }
+.field-export-preview { padding: 12px; margin-top: 15px; border: 1px solid var(--field-line); border-radius: 13px; background: #fffefc; }
+.field-export-preview>img { display: block; width: 100%; max-height: 430px; object-fit: contain; }
+.field-export-preview>p { margin-top: 9px; color: var(--field-muted); font-size: 12px; }
+.field-save>.field-privacy-note { margin-top: 15px; color: #8a6871; font-size: 11px; }
+.field-message { margin: 15px 0; padding: 12px 14px; border-radius: 11px; background: #ede7e1; color: #6e4b58; font-size: 13px; line-height: 1.75; }
+.field-sources { margin-top: 22px; color: var(--field-muted); font-size: 12px; }
+.field-sources summary { min-height: 44px; cursor: pointer; }
+.field-sources p { margin: 3px 0 10px; line-height: 1.8; }
+.field-sources a { display: block; min-height: 40px; text-decoration: underline; text-underline-offset: 3px; }
+.field-large-dialog { width: min(100% - 20px,640px); max-height: calc(100dvh - 24px); padding: 0; border: 0; border-radius: 20px; background: #fffefc; color: #302c2d; overflow: auto; overscroll-behavior: contain; }
+.field-large-dialog::backdrop { background: #2c2022cc; backdrop-filter: blur(4px); }
+.field-large-inner { padding: 18px 22px 26px; }
+.field-large-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 30px; }
+.field-large-toolbar>span { font-size: 12px; font-weight: 600; color: #934758; }
+.field-large-toolbar>button { flex: none; min-width: 52px; min-height: 44px; padding: 8px; border: 1px solid var(--field-line); border-radius: 11px; background: #f7f4ef; font-size: 13px; }
+.field-large-inner h2 { white-space: pre-line; overflow-wrap: anywhere; font-family: -apple-system,BlinkMacSystemFont,'PingFang TC','Microsoft JhengHei','Apple SD Gothic Neo',sans-serif; font-size: clamp(32px,9vw,53px); font-weight: 750; line-height: 1.6; }
+.field-large-address { margin-top: 25px; font-size: clamp(20px,5.5vw,28px); line-height: 1.8; overflow-wrap: anywhere; }
+.field-large-controls { display: flex; gap: 9px; margin-top: 35px; }
+.field-dialog-copy { margin-top: 12px; }
+@media (max-width:360px) { .field-destination { padding: 19px 15px; } .field-actions { gap: 6px; } .field-action { padding: 10px 7px; font-size: 12px; } .field-large-inner { padding: 15px 17px 22px; } }
+@media (prefers-reduced-motion:reduce) { .field-cards * { scroll-behavior: auto; transition: none; } }
