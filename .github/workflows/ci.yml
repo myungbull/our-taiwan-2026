@@ -20,4 +20,5 @@ jobs:
       - run: npm run install:ci
       - run: npm run typecheck
       - run: npm run test:state
+      - run: npm run test:weather
       - run: npm run build

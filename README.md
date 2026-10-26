@@ -23,11 +23,12 @@ PowerShell에서는 `cp` 대신 `Copy-Item .dev.vars.example .dev.vars`를 사�
 ```sh
 npm run typecheck
 npm run test:state
+npm run test:weather
 npm run build
 npm run start
 ```
 
-`npm run start`는 빌드된 Worker를 로컬에서 프리뷰합니다. **배포하지 않습니다.** `npm run lint`는 현재 기존 오류 20개와 경고 8개로 실패하며, 상세 내용은 [미해결 항목](docs/OPEN_ITEMS.md)에 있습니다. GitHub Actions는 타입 검사, 아이디어 상태 테스트, 빌드를 확인하고 운영 비밀 없이 실행됩니다.
+`npm run start`는 빌드된 Worker를 로컬에서 프리뷰합니다. **배포하지 않습니다.** `npm run lint`는 현재 기존 오류 20개와 경고 8개로 실패하며, 상세 내용은 [미해결 항목](docs/OPEN_ITEMS.md)에 있습니다. GitHub Actions는 타입 검사, 아이디어 상태 테스트, 날씨 서비스 테스트, 빌드를 확인하고 운영 비밀 없이 실행됩니다.
 
 ## 구조와 데이터
 

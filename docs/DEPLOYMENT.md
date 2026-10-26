@@ -27,6 +27,7 @@ npm run dev
 ```sh
 npm run typecheck
 npm run test:state
+npm run test:weather
 npm run build
 npm run start
 ```
@@ -41,7 +42,7 @@ GitHub 저장소는 소스 전달용입니다. push만으로 배포되지 않습
 2. 사이트의 현재 소유자와 접근 모드를 확인합니다. 현재 사용 중인 `custom` 2인 허용 목록을 유지하고 새 공개 모드로 변경하지 않습니다.
 3. `DB`/`BUCKET` 바인딩과 실제 운영 `ALLOWED_EMAILS` 비밀을 보존합니다. 저장소 안의 예제 주소는 운영에 사용하지 않습니다.
 4. 비밀 `ACCUWEATHER_API_KEY`가 필요해지는 날짜는 `2026-11-08`(Asia/Taipei)입니다. 키가 없으면 안전한 비밀 설정 경로로 소유자에게 요청하고, 코드·커밋·로그에 기록하지 않습니다.
-5. 정확한 배포 커밋에서 `npm run typecheck`, `npm run test:state`, `npm run build`를 통과시킵니다.
+5. 정확한 배포 커밋에서 `npm run typecheck`, `npm run test:state`, `npm run test:weather`, `npm run build`를 통과시킵니다.
 6. Codex/ChatGPT에서 Sites 커넥터를 사용할 경우, 기존 사이트용 Sites source workflow로 해당 커밋을 사이트의 관리 소스 브랜치에 동기화하고 빌드 아카이브를 만든 다음, 저장한 버전을 배포합니다. Sites 도구와 사용 가능한 `sites` skill의 현재 절차를 따르세요. 일반 GitHub push를 사이트 배포로 간주하지 않습니다.
 7. 배포 후 상태가 성공인지 확인하고 버전·커밋·URL을 기록합니다. 익명 접근은 거부되고 두 허용 계정은 공동 기능을 사용할 수 있는지 확인하되, 접근 정책이나 실제 여행 데이터를 테스트 목적으로 변경하지 않습니다.
 
