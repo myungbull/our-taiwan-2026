@@ -1,6 +1,19 @@
 import { sqliteTable, text, integer, primaryKey, index } from 'drizzle-orm/sqlite-core';
 export const records = sqliteTable('records', { key: text('key').primaryKey(), value: text('value').notNull(), revision: integer('revision').notNull().default(1) });
 
+// Weather lives outside shared user records; snapshots survive Worker restarts.
+export const weatherCache = sqliteTable('weather_cache', {
+  region: text('region').primaryKey(),
+  primaryJson: text('primary_json'),
+  fallbackJson: text('fallback_json'),
+  primaryFailures: integer('primary_failures').notNull().default(0),
+  primaryNextAt: integer('primary_next_at').notNull().default(0),
+  fallbackNextAt: integer('fallback_next_at').notNull().default(0),
+  leaseToken: text('lease_token'),
+  leaseUntil: integer('lease_until').notNull().default(0),
+  lastError: text('last_error'),
+});
+
 export const ideas = sqliteTable('ideas', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),

@@ -38,6 +38,11 @@
 .weather-attribution span { flex-basis: 100%; }
 .weather-privacy { margin-top: 10px; color: var(--muted,#8b8082); font-size: 12px; }
 .weather-stale { margin-top: 14px; padding: 9px 11px; border-radius: 9px; background: #f5eadb; color: #845c49; font-size: 12px; }
+.weather-source-status { margin-top: 11px; color: #845c49; font-size: 12px; line-height: 1.65; }
+.weather-source-time { margin-top: 5px; color: var(--muted,#8b8082); font-size: 11px; line-height: 1.6; }
+.weather-range { margin-top: 10px; }
+.weather-attribution .weather-source-divider { flex-basis: auto; margin-left: 0; }
+.weather-refresh:disabled { opacity: .55; cursor: wait; }
 .weather-error { margin: 16px 0 0; color: #845c49; font-size: 13px; }
 .weather-error button { margin-top: 9px; min-height: 44px; padding: 8px 15px; border: 1px solid #ce9ba6; border-radius: 10px; background: transparent; color: var(--primary,#934758); font-weight: 650; }
 .weather-loading { margin-top: 18px; color: var(--muted,#8b8082); font-size: 13px; }

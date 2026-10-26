@@ -15,16 +15,19 @@ export const dayRegions: Record<string, readonly WeatherRegionId[]> = {
   '2026-11-22': ['wulai', 'taoyuan'],
 };
 export const WEATHER_TIMEZONE = 'Asia/Taipei';
+export type WeatherProvider = 'Open-Meteo' | 'CWA';
 export type WeatherCurrent = {
   time: string; temperature: number | null; apparent: number | null;
   isDay: boolean | null; code: number | null; precipitation: number | null; wind: number | null;
+  source?: WeatherProvider; kind?: 'model' | 'observation'; station?: string; fetchedAt?: string; stale?: boolean;
 };
-export type WeatherDay = { date: string; code: number | null; minimum: number | null; maximum: number | null; rainProbability: number | null };
+export type WeatherDay = { date: string; code: number | null; minimum: number | null; maximum: number | null; rainProbability: number | null; source?: WeatherProvider; fetchedAt?: string; stale?: boolean; summary?: string };
 export type WeatherData = { fetchedAt: string; timezone: typeof WEATHER_TIMEZONE; current: WeatherCurrent | null; daily: WeatherDay[] };
 export type WeatherResult = WeatherData & {
-  provider: 'Open-Meteo'; region: { id: WeatherRegionId; name: string }; requestedDate: string;
+  provider: WeatherProvider; region: { id: WeatherRegionId; name: string }; requestedDate: string;
   selectedForecast: WeatherDay | null; availability: 'available' | 'not-yet' | 'past' | 'unavailable';
   forecastStart: string | null; forecastEnd: string | null; availableFrom: string; stale: boolean;
+  refresh?: { needed: boolean; inProgress: boolean; nextAttemptAt: string | null; primaryFailures: number; fallback: 'standby' | 'active' | 'missing-key' | 'unavailable' };
 };
 
 export function isWeatherRegion(value: unknown): value is WeatherRegionId {

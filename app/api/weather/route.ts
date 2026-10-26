@@ -1,50 +1,27 @@
-import { requireAllowedMember, isResponse } from '../_lib/auth';
-import { isValidWeatherDate, isWeatherRegion, normalizeWeatherData, taipeiDate, weatherRegions, weatherResultForDate, type WeatherData, type WeatherRegionId } from '../../weather-data';
+import { env } from 'cloudflare:workers';
+import { requireAllowedMember, isResponse, sameOrigin } from '../_lib/auth';
+import { isValidWeatherDate, isWeatherRegion } from '../../weather-data';
+import { readWeatherState, refreshWeather, resultFromState } from './service';
 
 export const dynamic = 'force-dynamic';
-const CACHE_MS = 15 * 60 * 1000;
-const STALE_MS = 6 * 60 * 60 * 1000;
-const responseHeaders = { 'Cache-Control': 'private, no-store', 'Vary': 'Cookie' };
-type Cached = { data: WeatherData; savedAt: number; taipeiDay: string };
-const cache = new Map<WeatherRegionId, Cached>();
-const pending = new Map<string, Promise<Cached>>();
-
-async function loadWeather(region: WeatherRegionId, today: string): Promise<Cached> {
-  const key = `${region}:${today}`;
-  const existing = pending.get(key);
-  if (existing) return existing;
-  const task = (async () => {
-    const place = weatherRegions[region];
-    const url = new URL('https://api.open-meteo.com/v1/forecast');
-    url.search = new URLSearchParams({ latitude: String(place.latitude), longitude: String(place.longitude), current: 'temperature_2m,apparent_temperature,is_day,weather_code,precipitation,wind_speed_10m', daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max', timezone: 'Asia/Taipei', forecast_days: '16', temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm' }).toString();
-    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 8000);
-    try {
-      // No identity headers, browser cookies, or user GPS are sent upstream.
-      const response = await fetch(url, { headers: { Accept: 'application/json' }, signal: controller.signal });
-      if (!response.ok) throw new Error('Weather provider unavailable');
-      const savedAt = Date.now();
-      const data = normalizeWeatherData(await response.json(), new Date(savedAt).toISOString());
-      const entry = { data, savedAt, taipeiDay: today };
-      cache.set(region, entry);
-      return entry;
-    } finally { clearTimeout(timeout); }
-  })();
-  pending.set(key, task);
-  try { return await task; } finally { pending.delete(key); }
-}
-
-export async function GET(request: Request) {
+const headers = { 'Cache-Control': 'private, no-store', Vary: 'Cookie' };
+async function handle(request: Request, refresh: boolean) {
   const member = await requireAllowedMember();
   if (isResponse(member)) return member;
+  if (refresh && !sameOrigin(request)) return Response.json({ error: '같은 사이트에서 다시 시도해 주세요.' }, { status: 403, headers });
   const params = new URL(request.url).searchParams, region = params.get('region'), date = params.get('date');
-  if (!isWeatherRegion(region) || !isValidWeatherDate(date)) return Response.json({ error: '올바른 여행 지역과 날짜를 선택해 주세요.' }, { status: 400, headers: responseHeaders });
-  const now = Date.now(), today = taipeiDate(new Date(now)), previous = cache.get(region);
-  if (previous && previous.taipeiDay === today && now - previous.savedAt < CACHE_MS) return Response.json(weatherResultForDate(previous.data, region, date, today), { headers: responseHeaders });
+  if (!isWeatherRegion(region) || !isValidWeatherDate(date)) return Response.json({ error: '올바른 여행 지역과 날짜를 선택해 주세요.' }, { status: 400, headers });
+  if (!env.DB) return Response.json({ error: '날씨 저장소 연결을 확인하고 있어요.' }, { status: 503, headers });
   try {
-    const latest = await loadWeather(region, today);
-    return Response.json(weatherResultForDate(latest.data, region, date, taipeiDate()), { headers: responseHeaders });
+    const state = refresh ? await refreshWeather({ db: env.DB, key: env.CWA_API_KEY, log: event => console.warn(JSON.stringify(event)) }, region) : await readWeatherState(env.DB, region);
+    const result = resultFromState(state, region, date, Date.now(), Boolean(env.CWA_API_KEY?.trim()));
+    if (refresh && !result.current && result.daily.length === 0 && state.primary_failures > 0 && !result.refresh?.inProgress) return Response.json({ ...result, error: '날씨 연결이 지연되고 있어요. 잠시 후 다시 확인해 주세요.' }, { status: 503, headers });
+    return Response.json(result, { headers });
   } catch {
-    if (previous && now - previous.savedAt <= STALE_MS) return Response.json(weatherResultForDate(previous.data, region, date, today, true), { headers: responseHeaders });
-    return Response.json({ error: '날씨를 불러오지 못했어요. 잠시 후 다시 확인해 주세요.' }, { status: 503, headers: responseHeaders });
+    console.warn(JSON.stringify({ event: 'weather-cache-error', region }));
+    return Response.json({ error: '날씨 저장소 연결이 지연되고 있어요. 다시 시도해 주세요.' }, { status: 503, headers });
   }
 }
+// Fast cached response followed by an awaited refresh; no detached Worker promise.
+export function GET(request: Request) { return handle(request, false); }
+export function POST(request: Request) { return handle(request, true); }
