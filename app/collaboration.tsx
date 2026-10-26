@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { days } from './travel-data';
 import MediaViewer from './media-viewer';
+import HiggsfieldHandoff from './higgsfield-handoff';
 import './media-updates.css';
 
 type Slot = {
@@ -220,6 +221,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
   const [photoPlace, setPhotoPlace] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [uploadHandoffOpen, setUploadHandoffOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState('');
   const [compressionProgress, setCompressionProgress] = useState(0);
@@ -263,7 +265,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
 
   function selectMedia(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (file) { setSelectedMedia(file); setPhotoError(''); }
+    if (file) { setSelectedMedia(file); setUploadHandoffOpen(false); setPhotoError(''); }
     event.target.value = '';
   }
 
@@ -275,8 +277,14 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
   function addEditedPhoto(file: File, original: PhotoEntry) {
     setSelectedMedia(file); setPhotoDate(original.date); onDateChange?.(original.date);
     setPhotoPlace(original.place); setPhotoCaption(`편집본 · ${original.caption || original.place || '대만 여행'}`.slice(0, 240));
-    setPhotoError(''); setViewingPhoto(null);
+    setPhotoError(''); setUploadHandoffOpen(false); setViewingPhoto(null);
     window.setTimeout(() => document.querySelector<HTMLFormElement>('.photo-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  }
+
+  function keepUploadEditedPhoto(file: File) {
+    setSelectedMedia(file);
+    setPhotoCaption((caption) => `편집본 · ${caption || photoPlace || '대만 여행'}`.slice(0, 240));
+    setPhotoError(''); setUploadHandoffOpen(false);
   }
 
   const publishSelected = useCallback((rows: Idea[]) => {
@@ -575,6 +583,8 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
         {selectedMedia && mediaPreview && (selectedMedia.type.startsWith('video/') ? <video className="photo-preview" src={mediaPreview} controls playsInline preload="metadata" aria-label="업로드 전 선택한 영상 미리보기" /> : <img className="photo-preview" src={mediaPreview} alt="업로드 전 선택한 사진 미리보기" />)}
         <label>장소<input maxLength={120} value={photoPlace} onChange={(event) => setPhotoPlace(event.target.value)} placeholder="예: 지우펀 홍등 골목" /></label>
         <label>짧은 메모<textarea rows={2} maxLength={240} value={photoCaption} onChange={(event) => setPhotoCaption(event.target.value)} placeholder="그날 기억하고 싶은 한 문장" /></label>
+        {selectedMedia && selectedMedia.type.startsWith('image/') && <div className="upload-edit-callout"><div><strong>올리기 전에 사진 편집하기</strong><p>원본을 사이트에 올리기 전, 힉스필드용 이미지와 문구를 먼저 공유할 수 있어요.</p></div><button type="button" aria-expanded={uploadHandoffOpen} onClick={() => setUploadHandoffOpen((open) => !open)}>{uploadHandoffOpen ? '편집 닫기' : '힉스필드 편집 준비'}</button></div>}
+        {uploadHandoffOpen && selectedMedia?.type.startsWith('image/') && <HiggsfieldHandoff sourceFile={selectedMedia} sourceDate={photoDate} sourcePlace={photoPlace} sourceCaption={photoCaption} onAddEdited={keepUploadEditedPhoto} />}
         <p className="form-hint">사진은 최대 1,800px·5MB, 영상은 3분·50MB 이내로 저장합니다. 영상 압축 시 최대 1,280px·24fps를 사용하며 이미 작은 MP4/WebM은 원본을 유지할 수 있어요. 영상 음성도 유지됩니다. 각자 자신의 파일을 삭제할 수 있어요.</p>
         {uploading && <div className="upload-progress" role="status"><span>{uploadStage}{selectedMedia?.type.startsWith('video/') && uploadStage.includes('압축') ? ` · ${compressionProgress}%` : ''}</span>{selectedMedia?.type.startsWith('video/') && uploadStage.includes('압축') && <progress value={compressionProgress} max={100} />}</div>}
         {photoError && <p className="error" role="alert">{photoError}</p>}
