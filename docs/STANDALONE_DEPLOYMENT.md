@@ -79,10 +79,22 @@ API 없이 힉스필드 결과를 앱 기록에 바로 넣는 흐름입니다(20
 
 ```sh
 node scripts/import-edited-photo.mjs --file result.png --date 2026-11-18 \
-  --uploader-id <Access 사용자 ID> --uploader-label "여행자 A" --place "장소" --caption "메모"
+  --uploader-label "여행자 A" --place "장소" --caption "메모" [--dry-run]
 ```
 
-- 업로더 ID는 D1 `photos.uploader_id`에서 확인합니다(그 사람이 앱에서 한 번 업로드한 뒤). 업로더로 기록된 사람만 앱에서 삭제할 수 있습니다.
-- wrangler 인증이 필요합니다(로컬은 `wrangler login`, 클라우드는 R2 쓰기·D1 편집 권한만 준 `CLOUDFLARE_API_TOKEN`).
+- `--uploader-id`를 생략하면 그 사람이 앞서 올린 사진의 업로더 ID를 씁니다(앱에서 한 번은 직접 업로드해야 함). 업로더로 기록된 사람만 앱에서 삭제할 수 있습니다.
+- `--dry-run`은 변환·D1 접근·저장 상한만 확인하고 아무것도 쓰지 않습니다.
+- 빌드가 필요 없습니다. D1/R2 이름은 `.standalone.json` 또는 환경 변수에서 읽습니다.
+- wrangler 인증이 필요합니다(로컬은 `wrangler login`, 클라우드는 아래 네트워크 시크릿).
 - 힉스필드 약관상 올린 사진·결과는 모델 학습에 쓰일 수 있습니다.
 - 첫 실행에서 wrangler D1 조회가 한 번 `7403`으로 실패했고, 다시 실행하니 성공했습니다(저장 전 단계라 남은 데이터 없음).
+
+### 클라우드 세션에서 쓰기 (PC 없이)
+
+Claude Code 클라우드 환경(claude.ai/code 환경 설정)에 다음을 둡니다. 값은 저장소에 적지 않습니다.
+
+- **네트워크 시크릿**: 허용 호스트 `api.cloudflare.com`, 헤더 `Authorization`·접두사 `Bearer`, 값은 Cloudflare API 토큰. 토큰 권한은 계정의 **D1 Edit**와 **Workers R2 Storage Edit** 두 개만 줍니다. 세션 VM에는 토큰이 들어가지 않고 프록시가 요청에 붙입니다.
+- **환경 변수**: `CLOUDFLARE_ACCOUNT_ID`, `STANDALONE_D1_DATABASE_NAME`, `STANDALONE_D1_DATABASE_ID`, `STANDALONE_R2_BUCKET`, 그리고 wrangler가 토큰 존재를 요구하므로 자리표시자 `CLOUDFLARE_API_TOKEN=proxy-injected`.
+- **네트워크 접근**: Custom + 기본 목록 포함, 추가 도메인 `upload.higgsfield.ai`, `*.cloudfront.net`(힉스필드 업로드·결과 이미지). 힉스필드 MCP 커넥터 자체는 허용 목록 없이 동작합니다.
+
+세션에서는 `npm ci` 후 이 브랜치의 스크립트를 `--dry-run`으로 먼저 확인합니다.
