@@ -2,6 +2,8 @@
 
 Last updated: 2026-10-27 (Asia/Seoul)
 
+> 2026-10-27: 4단계 R2 생성은 Cloudflare MCP로, 5단계 Access는 Worker 화면의 **Access** 탭(Protect this Worker behind Access → All traffic)으로 했습니다. 이 방식은 AUD tag와 팀 도메인을 같은 화면에 보여 줍니다.
+
 OpenAI Sites 운영 사이트와 **별개로**, 본인 Cloudflare 계정에 같은 앱을 띄우는 방법입니다. 새 D1/R2를 쓰므로 **빈 상태로 시작**하며 Sites의 투표·예산·사진은 옮겨지지 않습니다. Sites 운영 배포 절차는 [DEPLOYMENT.md](DEPLOYMENT.md)를 보세요.
 
 ## 인증 구조
@@ -51,4 +53,18 @@ npx wrangler secret put ALLOWED_EMAILS --config dist/server/wrangler.standalone.
 - `--dry-run` 패키징 성공: 바인딩 `DB`, `BUCKET`, `AUTH_PROVIDER`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`.
 - 독립 설정으로 `wrangler dev --local`을 띄워 확인: 익명 `/` 401, 익명 `/api/state` 401, 위조한 `oai-*` 헤더 401, 가짜 JWT 401.
 - 기본(Sites) 설정은 그대로: `/` 200, 익명 `/api/state`는 앱의 401 응답.
-- 실제 Cloudflare 계정·Access 로그인·두 계정 동기화는 아직 확인하지 않았습니다.
+
+## 실제 배포 기록 (2026-10-27)
+
+- 사용자 Cloudflare 계정에 배포 완료(운영 URL은 공개 저장소에 적지 않음). D1 마이그레이션 0000~0005 적용, R2 Standard 버킷.
+- Access: Worker 화면의 Access 탭에서 **All traffic** 보호를 켜고, 앱 정책은 허용 이메일 2개만 포함한 `Two travelers` 하나만 남김. Preview URL은 비활성.
+- `ALLOWED_EMAILS`는 `wrangler secret put`으로만 등록.
+- 확인: 익명 `/`, `/api/state`, `/api/photos` → Access 로그인으로 302. 위조 `oai-*` 헤더 + 가짜 JWT → 302.
+- 비용 상한 변수 `R2_MAX_BYTES=5000000000`, `R2_MAX_WRITES_PER_MONTH=50000`, `R2_MAX_READS_PER_MONTH=500000` 적용.
+- 미확인: 허용 계정으로 실제 로그인(일회용 코드)한 뒤 공동 API·사진 업로드 동작, 두 계정 동기화, iPhone Safari.
+
+## 비용 원칙
+
+- Workers·D1은 무료 플랜에서 한도를 넘으면 오류만 나고 청구되지 않습니다. Workers Paid로 업그레이드하지 않습니다.
+- R2만 무료 한도 초과 시 과금되므로 앱이 위 상한에서 업로드·조회를 거부합니다(`app/api/_lib/r2-budget.ts`). Infrequent Access 저장 클래스는 무료 한도가 없으니 쓰지 않습니다.
+- Zero Trust는 Free 플랜(50명까지 $0)을 사용합니다.
