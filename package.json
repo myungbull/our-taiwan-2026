@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "test:state": "node --experimental-strip-types --test tests/idea-state.test.mjs",
     "test:weather": "node --experimental-transform-types --no-warnings --import ./tests/register-ts.mjs --test tests/weather.test.mjs",
-    "test:access": "node --experimental-transform-types --no-warnings --import ./tests/register-ts.mjs --test tests/cloudflare-access.test.mjs",
+    "test:standalone": "node --experimental-transform-types --no-warnings --import ./tests/register-ts.mjs --test tests/cloudflare-access.test.mjs tests/r2-budget.test.mjs",
     "standalone:deploy": "node scripts/standalone-deploy.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"

@@ -48,6 +48,11 @@ Object.assign(config, {
     AUTH_PROVIDER: "cloudflare-access",
     ACCESS_TEAM_DOMAIN: settings.accessTeamDomain,
     ACCESS_AUD: settings.accessAud,
+    // Fixed cost guards (app/api/_lib/r2-budget.ts), well inside the R2 free tier:
+    // 5 GB of the 10 GB-month, 50k of 1M Class A, 500k of 10M Class B per month.
+    R2_MAX_BYTES: "5000000000",
+    R2_MAX_WRITES_PER_MONTH: "50000",
+    R2_MAX_READS_PER_MONTH: "500000",
   },
 });
 writeFileSync(outputPath, JSON.stringify(config, null, 2));

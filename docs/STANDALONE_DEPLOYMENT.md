@@ -25,7 +25,7 @@ OpenAI Sites 운영 사이트와 **별개로**, 본인 Cloudflare 계정에 같�
 
 ```sh
 npm run typecheck
-npm run test:access
+npm run test:standalone
 npm run build
 npm run standalone:deploy
 ```

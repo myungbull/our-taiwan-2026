@@ -36,6 +36,13 @@
       "when": 1792996622920,
       "tag": "0004_great_the_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793071254158,
+      "tag": "0005_usage_counters",
+      "breakpoints": true
     }
   ]
 }

@@ -55,3 +55,10 @@ export const photos = sqliteTable('photos', {
   contentType: text('content_type').notNull().default('image/webp'),
   byteSize: integer('byte_size').notNull(),
 }, (table) => [index('photos_trip_date_idx').on(table.tripDate, table.uploadedAt)]);
+
+// Monthly R2 operation counters; enforced only where R2 limits are configured (standalone deployment).
+export const usageCounters = sqliteTable('usage_counters', {
+  period: text('period').notNull(),
+  kind: text('kind').notNull(),
+  count: integer('count').notNull().default(0),
+}, (table) => [primaryKey({ columns: [table.period, table.kind] })]);

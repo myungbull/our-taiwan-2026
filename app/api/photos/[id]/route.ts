@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { requireAllowedMember, isResponse } from '../../_lib/auth';
+import { r2Limits, reserveR2Operation } from '../../_lib/r2-budget';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const row = await env.DB!.prepare('SELECT object_key,content_type FROM photos WHERE id=?').bind(id).first<{ object_key: string; content_type: string }>();
     if (!row) return new Response(null, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
+    const limits = r2Limits(env);
+    if (limits && !await reserveR2Operation(env.DB!, 'r2-read', limits.maxReadsPerMonth)) return new Response('Monthly free read limit reached', { status: 429, headers: { 'Cache-Control': 'private, no-store' } });
     const isVideo = row.content_type.startsWith('video/');
     const object = await env.BUCKET.get(row.object_key, isVideo && request.headers.has('range') ? { range: request.headers } : undefined);
     if (!object) return new Response(null, { status: 404, headers: { 'Cache-Control': 'private, no-store' } });

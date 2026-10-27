@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { requireAllowedMember, isResponse, sameOrigin, travelerLabel, isTripDate } from '../_lib/auth';
+import { r2Limits, reserveR2Operation, storedBytes } from '../_lib/r2-budget';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +41,7 @@ export async function GET(request: Request) {
       photos,
       nextCursor: fetched.length > 100 && last ? `${last.uploaded_at}|${last.id}` : null,
       viewerLabel: travelerLabel(member.memberIndex),
-      usage: { usedBytes: Number(usage?.used_bytes ?? 0), fileCount: Number(usage?.file_count ?? 0), referenceBytes: 10_000_000_000 },
+      usage: { usedBytes: Number(usage?.used_bytes ?? 0), fileCount: Number(usage?.file_count ?? 0), referenceBytes: r2Limits(env)?.maxBytes || 10_000_000_000 },
     }, { headers: { 'Cache-Control': 'private, no-store' } });
   } catch {
     return Response.json({ error: '사진 기록을 불러오지 못했습니다.' }, { status: 503, headers: { 'Cache-Control': 'private, no-store' } });
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
     const video = file instanceof File && ['video/mp4', 'video/webm'].includes(file.type);
     if (!isTripDate(date) || !(file instanceof File) || (!image && !video) || file.size < 1 || (image && file.size > 5_000_000) || (video && file.size > 50_000_000)) {
       return Response.json({ error: '사진은 5MB 이하, 영상은 압축된 MP4/WebM 50MB 이하로 올려 주세요.' }, { status: 400 });
+    }
+    const limits = r2Limits(env);
+    if (limits) {
+      if (await storedBytes(env.DB!) + file.size > limits.maxBytes) return Response.json({ error: '무료 저장 한도에 도달했어요. 기존 사진이나 영상을 지운 뒤 다시 올려 주세요.' }, { status: 507 });
+      if (!await reserveR2Operation(env.DB!, 'r2-write', limits.maxWritesPerMonth)) return Response.json({ error: '이번 달 무료 업로드 한도에 도달했어요. 다음 달에 다시 올려 주세요.' }, { status: 429 });
     }
     const id = crypto.randomUUID();
     const extension = file.type === 'image/webp' ? 'webp' : file.type === 'image/jpeg' ? 'jpg' : file.type === 'video/mp4' ? 'mp4' : 'webm';
