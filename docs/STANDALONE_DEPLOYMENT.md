@@ -68,3 +68,21 @@ npx wrangler secret put ALLOWED_EMAILS --config dist/server/wrangler.standalone.
 - Workers·D1은 무료 플랜에서 한도를 넘으면 오류만 나고 청구되지 않습니다. Workers Paid로 업그레이드하지 않습니다.
 - R2만 무료 한도 초과 시 과금되므로 앱이 위 상한에서 업로드·조회를 거부합니다(`app/api/_lib/r2-budget.ts`). Infrequent Access 저장 클래스는 무료 한도가 없으니 쓰지 않습니다.
 - Zero Trust는 Free 플랜(50명까지 $0)을 사용합니다.
+
+## 편집 사진 바로 가져오기 (Claude + 힉스필드 MCP)
+
+API 없이 힉스필드 결과를 앱 기록에 바로 넣는 흐름입니다(2026-10-27 사진 1장으로 확인).
+
+1. Claude 세션에 사진과 템플릿·날짜·장소를 보냅니다.
+2. Claude가 힉스필드 MCP(`media_upload` → `generate_image`, 기본 `gpt_image_2_5` medium·2k, 약 1크레딧)로 편집합니다. 템플릿 문구는 `app/higgsfield-handoff.tsx`와 같습니다.
+3. 결과를 `scripts/import-edited-photo.mjs`로 넣습니다. JPEG·긴 변 1800px·5MB 이하로 변환하고, 앱과 같은 저장 5GB·월 업로드 5만 회 상한과 `usage_counters`를 지킵니다.
+
+```sh
+node scripts/import-edited-photo.mjs --file result.png --date 2026-11-18 \
+  --uploader-id <Access 사용자 ID> --uploader-label "여행자 A" --place "장소" --caption "메모"
+```
+
+- 업로더 ID는 D1 `photos.uploader_id`에서 확인합니다(그 사람이 앱에서 한 번 업로드한 뒤). 업로더로 기록된 사람만 앱에서 삭제할 수 있습니다.
+- wrangler 인증이 필요합니다(로컬은 `wrangler login`, 클라우드는 R2 쓰기·D1 편집 권한만 준 `CLOUDFLARE_API_TOKEN`).
+- 힉스필드 약관상 올린 사진·결과는 모델 학습에 쓰일 수 있습니다.
+- 첫 실행에서 wrangler D1 조회가 한 번 `7403`으로 실패했고, 다시 실행하니 성공했습니다(저장 전 단계라 남은 데이터 없음).
