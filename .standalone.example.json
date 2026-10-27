@@ -1,0 +1,8 @@
+{
+  "workerName": "our-taiwan-2026-standalone",
+  "d1DatabaseName": "our-taiwan-2026",
+  "d1DatabaseId": "00000000-0000-0000-0000-000000000000",
+  "r2BucketName": "our-taiwan-2026-media",
+  "accessTeamDomain": "your-team.cloudflareaccess.com",
+  "accessAud": "replace-with-the-access-application-aud-tag"
+}

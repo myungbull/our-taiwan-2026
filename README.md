@@ -47,4 +47,4 @@ npm run start
 
 기존 비공개 사이트에 배포하려면 Sites 프로젝트 권한과 Sites 커넥터가 필요합니다. 기존 `custom` 2인 접근 정책과 데이터 바인딩을 보존한 뒤 Sites 전용 source/build/deploy 흐름을 사용하세요. 별도 호스팅으로 옮기려면 인증과 저장소를 이전하는 별도 작업이 필요합니다.
 
-자세한 안내: [개발 인수인계](docs/DEVELOPER_HANDOFF.md) · [배포 방법](docs/DEPLOYMENT.md) · [미해결 항목](docs/OPEN_ITEMS.md) · [다음 개발자 시작 프롬프트](docs/NEXT_DEVELOPER_PROMPT.md)
+자세한 안내: [개발 인수인계](docs/DEVELOPER_HANDOFF.md) · [배포 방법](docs/DEPLOYMENT.md) · [독립 Cloudflare 배포](docs/STANDALONE_DEPLOYMENT.md) · [미해결 항목](docs/OPEN_ITEMS.md) · [다음 개발자 시작 프롬프트](docs/NEXT_DEVELOPER_PROMPT.md)

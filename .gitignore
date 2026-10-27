@@ -44,3 +44,6 @@ yarn-error.log*
 
 # OS metadata
 .DS_Store
+
+# Standalone Cloudflare deployment settings (local only)
+/.standalone.json

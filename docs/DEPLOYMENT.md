@@ -53,3 +53,5 @@ GitHub 저장소는 소스 전달용입니다. push만으로 배포되지 않습
 GitHub Pages 같은 정적 호스팅으로는 이 앱을 배포할 수 없습니다. 앱에는 서버 API, D1, 비공개 R2, Cloudflare Worker, Sites가 주입하는 신뢰 가능한 ChatGPT 사용자 식별 정보가 필요합니다. `.openai/hosting.json`과 로컬 mock sign-in만으로 운영 인증이 만들어지지 않습니다.
 
 별도 Cloudflare 계정/Worker로 옮기려면 인증을 대체할 안전한 로그인·2인 허용 목록 체계, D1/R2 자원과 바인딩, 비밀 저장, 데이터 이전·마이그레이션·사진 접근 검증을 별도 설계해야 합니다. 이 작업은 현재 운영 사이트에 배포하는 것과 다른 마이그레이션입니다.
+
+인증 부분은 Cloudflare Access + Worker JWT 검증으로 구현돼 있습니다. 빈 D1/R2로 시작하는 스테이징 배포 절차는 [STANDALONE_DEPLOYMENT.md](STANDALONE_DEPLOYMENT.md)에 있습니다. Sites 데이터 이전은 아직 별도 작업입니다.

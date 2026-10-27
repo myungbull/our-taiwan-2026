@@ -1,6 +1,7 @@
 import handler from "vinext/server/fetch-handler";
 import { runWithConnectorBinding } from "../lib/connector-context";
 import type { ConnectorBinding } from "../lib/connector-contract.mjs";
+import { gateWithCloudflareAccess } from "./cloudflare-access";
 
 const worker = {
   fetch(request: Request, env: Cloudflare.Env, ctx: ExecutionContext<{ CONNECTORS?: ConnectorBinding }>) {
@@ -22,6 +23,12 @@ const worker = {
           return preview.invoke(connectorId, actionName, args);
         },
       };
+    }
+    // Standalone deployments only; Sites builds leave AUTH_PROVIDER unset.
+    if (env.AUTH_PROVIDER === "cloudflare-access") {
+      return gateWithCloudflareAccess(request, env).then((gated) =>
+        gated instanceof Response ? gated : runWithConnectorBinding(binding, () => handler.fetch(gated, env, ctx)),
+      );
     }
     return runWithConnectorBinding(binding, () => handler.fetch(request, env, ctx));
   },

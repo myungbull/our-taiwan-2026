@@ -21,4 +21,5 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:state
       - run: npm run test:weather
+      - run: npm run test:access
       - run: npm run build
