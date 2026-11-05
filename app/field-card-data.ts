@@ -77,13 +77,13 @@ export const fieldCards: FieldCard[] = [
   },
   {
     id: 'tour-meeting-pending', type: 'tour', title: '예스지 투어 집결지',
-    status: 'pending', statusLabel: '집결지 확인 필요',
-    destination: '집결지를 먼저 확인해 주세요', address: '',
-    date: '2026.11.19 목요일 · 대만 현지 시각',
-    details: ['계획: 예류 15:00 · 스펀 17:00~18:00 · 지우펀 18:50~20:30', '집결 장소·출발 시각·상품 예약 상태 확인 필요'],
-    note: '클룩 예약 내역에서 정확한 상품명과 집결 장소를 확인한 뒤 이용해 주세요. 관광지 도착 시각은 집결 시각이 아닙니다.',
+    status: 'confirmed', statusLabel: '예약 완료 · 집결지 택 1',
+    destination: '타이베이 메인역 M3 지하 1층\n또는 시먼역 5번 출구 지상 1층', address: '',
+    date: '2026.11.20 금요일 · 대만 현지 시각',
+    details: ['12:50 시먼역 미팅 · 13:00 출발', '13:20 메인역 미팅 · 13:30 출발', '예류 14:30~15:40 · 스펀 16:30~17:20 · 지우펀 18:10~20:10 · 21:10부터 하차'],
+    note: '가이드에게 한글 이름을 말하면 됩니다. 구매처 안내와 다르면 예약 내역을 따라 주세요.',
     speechText: '', speechLang: 'zh-TW',
-    sources: [{ label: '클룩 예약 내역에서 확인', url: 'https://www.klook.com/ko/' }],
+    sources: [{ label: '착한투어 상품 안내', url: 'https://experiences.myrealtrip.com/products/3481408' }],
   },
 ];
 

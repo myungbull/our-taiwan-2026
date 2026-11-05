@@ -41,7 +41,7 @@ export type IdeaSlotSuggestion = {
   travelTimeIsEstimate: true;
   mapUrl: string;
   reason: string;
-  /** Tour-date uncertainty is surfaced even though 11/19 itself is excluded. */
+  /** Tour-date uncertainty is surfaced even though 11/20 itself is excluded. */
   tourTimingUnconfirmed: boolean;
   timingUncertainty: string | null;
 };
@@ -58,7 +58,7 @@ type SlotTemplate = {
 
 const TRIP_START = '2026-11-18';
 const TRIP_END = '2026-11-22';
-const TOUR_DATE = '2026-11-19';
+const TOUR_DATE = '2026-11-20';
 
 // Deliberately limited to windows with room around the fixed route. Arrival,
 // activity duration, and city travel are estimates and must be checked in Maps.
@@ -73,13 +73,13 @@ const SAFE_WINDOWS: readonly SlotTemplate[] = [
     reason: '호텔에 짐을 맡긴 뒤 14시 디화제 산책 전에 짧게 들를 수 있는 시간대입니다. 체류 45분 이하이며 장소가 메인역·디화제 동선에 맞을 때 추천합니다.',
   },
   {
-    date: '2026-11-20',
-    time: '18:40',
-    maxDurationMinutes: 120,
-    estimatedTravelMinutes: 30,
+    date: '2026-11-19',
+    time: '18:20',
+    maxDurationMinutes: 90,
+    estimatedTravelMinutes: 20,
     origin: 'Taipei 101 Observatory',
-    nextStop: 'Taipei Main Station',
-    reason: '15:30~18:00 타이베이 101 관람이 끝난 뒤 저녁 시간입니다. 다음 날 우라이 이동 전 일정에 여유를 남기도록 늦은 밤 방문은 피했습니다.',
+    nextStop: '혜안공원 (20:00 예상)',
+    reason: '15:30~18:00 타이베이 101 관람이 끝난 뒤 저녁 시간입니다. 20:00 혜안공원 야경 전까지만 쓰도록 체류 90분 이하에서 추천합니다.',
   },
 ];
 
@@ -115,7 +115,7 @@ function slotIsSupportedByItinerary(template: SlotTemplate, day: PlannerDay | un
       && containsStop(day, /디화제|Dihua Street/i)
       && containsStop(day, /닝샤|Ningxia/i);
   }
-  if (template.date === '2026-11-20') {
+  if (template.date === '2026-11-19') {
     return containsStop(day, /101 전망대|Taipei 101 Observatory/i);
   }
   return false;
@@ -124,8 +124,8 @@ function slotIsSupportedByItinerary(template: SlotTemplate, day: PlannerDay | un
 /**
  * Return up to three conservative placements for an idea. This is a heuristic,
  * not a routing service: travel minutes are estimates, and exact destination
- * routing and day-of timing need a human check. No slot is emitted on 11/19
- * because the tour operator's complete schedule has not been confirmed.
+ * routing and day-of timing need a human check. No slot is emitted on 11/20
+ * because the booked tour fills that day.
  */
 export function suggestIdeaSlots(input: IdeaSlotInput): IdeaSlotSuggestion[] {
   const placeName = input.placeName.trim();
@@ -153,8 +153,8 @@ export function suggestIdeaSlots(input: IdeaSlotInput): IdeaSlotSuggestion[] {
     if (itinerary && !slotIsSupportedByItinerary(window, day)) continue;
 
     const dayHasTour = Boolean(day && containsStop(day, /예스지 투어|예류|스펀 천등|지우펀 야경/i));
-    // The 11/19 tour is an all-day reservation candidate with unconfirmed
-    // gathering/return times, so it is intentionally never treated as open.
+    // The booked 11/20 tour runs from midday to late evening, so that date is
+    // intentionally never treated as open.
     if (window.date === TOUR_DATE || dayHasTour) continue;
 
     const nextStopName = window.nextStop;
@@ -172,8 +172,8 @@ export function suggestIdeaSlots(input: IdeaSlotInput): IdeaSlotSuggestion[] {
       travelTimeIsEstimate: true,
       mapUrl: mapDirections(window.origin, placeName),
       reason: `${window.reason} ${uncertainty} 다음 동선: ${nextStopName}.`,
-      tourTimingUnconfirmed: true,
-      timingUncertainty: `11/19 예스지 투어의 집결·복귀·세부 방문 시간이 미확정이라 그 날짜는 제안에서 제외했습니다. ${uncertainty}`,
+      tourTimingUnconfirmed: false,
+      timingUncertainty: `11/20은 예스지 투어 날이라 제안에서 제외했습니다. ${uncertainty}`,
     });
     if (result.length === 3) break;
   }

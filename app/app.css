@@ -190,7 +190,16 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .restaurant-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .restaurant-actions>a:last-child { display: inline-flex; align-items: center; min-height: 44px; color: var(--muted); font-size: 11px; }
 .footnote { margin: 20px 0; color: var(--muted); font-size: 12px; line-height: 1.85; }
-.prepare-tabs { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 4px; padding: 4px; margin: -2px 0 24px; border-radius: 12px; background: #ece4df; }
+.tip-group { margin-top: 24px; }
+.tip-list { display: grid; gap: 10px; }
+.tip-card { padding: 16px; border-radius: 16px; background: var(--surface); }
+.tip-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.tip-card h3 { font-size: 15px; line-height: 1.4; }
+.tip-card-top .status-pill { flex: none; font-size: 10px; }
+.tip-card p { color: #6f5c62; font-size: 13px; line-height: 1.75; }
+.tip-sources { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; }
+.tip-sources a { color: var(--primary); font-size: 12px; }
+.prepare-tabs { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; gap: 4px; padding: 4px; margin: -2px 0 24px; border-radius: 12px; background: #ece4df; }
 .prepare-tabs a { display: flex; align-items: center; justify-content: center; min-height: 43px; border-radius: 9px; color: #99878e; font-size: 13px; font-weight: 650; }
 .prepare-tabs a[aria-current=page] { background: var(--surface); color: var(--primary); box-shadow: 0 1px 5px #5b3b4510; }
 .budget-summary { padding: 19px 18px; border-radius: 17px; background: var(--surface); }

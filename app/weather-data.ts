@@ -9,8 +9,8 @@ export const weatherRegions = {
 export type WeatherRegionId = keyof typeof weatherRegions;
 export const dayRegions: Record<string, readonly WeatherRegionId[]> = {
   '2026-11-18': ['taipei', 'taoyuan'],
-  '2026-11-19': ['yehliu', 'shifen', 'jiufen'],
-  '2026-11-20': ['taipei'],
+  '2026-11-19': ['taipei'],
+  '2026-11-20': ['yehliu', 'shifen', 'jiufen'],
   '2026-11-21': ['wulai', 'taipei'],
   '2026-11-22': ['wulai', 'taoyuan'],
 };

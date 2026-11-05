@@ -41,17 +41,17 @@ const placePins: PlacePin[] = [
   makePin('dihua', '디화제', '2026-11-18', 'Dihua Street Taipei', 25.0594, 121.5097),
   makePin('dadaocheng', '다다오청 선착장', '2026-11-18', 'Dadaocheng Wharf Taipei', 25.0560, 121.5084),
   makePin('ningxia', '닝샤 야시장', '2026-11-18', 'Ningxia Night Market Taipei', 25.0560, 121.5152),
-  makePin('yehliu', '예류 지질공원', '2026-11-19', 'Yehliu Geopark', 25.2052, 121.6904),
-  makePin('shifen', '스펀 옛 거리', '2026-11-19', 'Shifen Old Street', 25.0426, 121.7762),
-  makePin('jiufen', '지우펀 옛 거리', '2026-11-19', 'Jiufen Old Street', 25.1096, 121.8442),
-  makePin('longshan', '용산사', '2026-11-20', 'Longshan Temple Taipei', 25.0372, 121.4997),
-  makePin('bopiliao', '보피랴오 역사거리', '2026-11-20', 'Bopiliao Historical Block', 25.0368, 121.5007),
-  makePin('cksmemorial', '중정기념당', '2026-11-20', 'Chiang Kai-shek Memorial Hall Taipei', 25.0348, 121.5218),
-  makePin('fourfour', '사사남촌', '2026-11-20', 'Four Four South Village Taipei', 25.0311, 121.5619),
-  makePin('taipei101', '타이베이 101', '2026-11-20', 'Taipei 101 Observatory', 25.0339, 121.5645),
+  makePin('longshan', '용산사', '2026-11-19', 'Longshan Temple Taipei', 25.0372, 121.4997),
+  makePin('bopiliao', '보피랴오 역사거리', '2026-11-19', 'Bopiliao Historical Block', 25.0368, 121.5007),
+  makePin('cksmemorial', '중정기념당', '2026-11-19', 'Chiang Kai-shek Memorial Hall Taipei', 25.0348, 121.5218),
+  makePin('fourfour', '사사남촌', '2026-11-19', 'Four Four South Village Taipei', 25.0311, 121.5619),
+  makePin('taipei101', '타이베이 101', '2026-11-19', 'Taipei 101 Observatory', 25.0339, 121.5645),
+  makePin('yehliu', '예류 지질공원', '2026-11-20', 'Yehliu Geopark', 25.2052, 121.6904),
+  makePin('shifen', '스펀 옛 거리', '2026-11-20', 'Shifen Old Street', 25.0426, 121.7762),
+  makePin('jiufen', '지우펀 옛 거리', '2026-11-20', 'Jiufen Old Street', 25.1096, 121.8442),
   makePin('wulai-oldstreet', '우라이 옛 거리', '2026-11-21', 'Wulai Old Street', 24.8650, 121.5505),
-  makePin('wulai-falls', '우라이 폭포', '2026-11-21', 'Wulai Falls', 24.8425, 121.5518),
   makePin('spring-spa', 'Spring Spa Hotel', '2026-11-21', 'Spring Spa Hotel Wulai', 24.8630, 121.5504),
+  makePin('wulai-falls', '우라이 폭포', '2026-11-22', 'Wulai Falls', 24.8425, 121.5518),
   makePin('taoyuan', '타오위안공항 T1', '2026-11-22', 'Taiwan Taoyuan International Airport Terminal 1', 25.0797, 121.2342),
 ];
 
@@ -551,7 +551,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
         </div>
         <span className={'idea-approval-state ' + (idea.ideaApproval.approved ? 'approved' : '')}>{idea.ideaApproval.approved ? '둘 다 찬성 · 일정 반영 대기 중' : '두 사람의 찬성이 모이면 일정 대기목록으로 이동'}</span>
         {!idea.ideaApproval.approved && <><div className="proposal-heading"><strong>일정에 넣기 좋은 시간</strong><span>추천은 추정 · 최종 선택 전</span></div>
-          {idea.suggestions.length === 0 ? <p className="form-hint">현재 확정 일정 사이에 무리 없이 넣을 후보를 찾지 못했어요. 체류시간을 줄이거나 장소를 더 정확히 적어 보세요. 11/19 투어 시간은 확정 전이라 그날은 추천에서 제외합니다. 단수이 일정은 여행 계획에서 제외되어 있어요.</p> : idea.suggestions.map((slot) => <div className="proposal" key={slot.id}>
+          {idea.suggestions.length === 0 ? <p className="form-hint">현재 확정 일정 사이에 무리 없이 넣을 후보를 찾지 못했어요. 체류시간을 줄이거나 장소를 더 정확히 적어 보세요. 11/20은 투어 날이라 추천에서 제외합니다. 단수이 일정은 여행 계획에서 제외되어 있어요.</p> : idea.suggestions.map((slot) => <div className="proposal" key={slot.id}>
             <div className="row"><strong>{dateLabel(slot.date)} · {slot.time}</strong><span className="badge">{slot.conflict.hasConflict ? '일정 확인 필요' : '후보'}</span></div>
             <p>{slot.conflict.note}</p><p>예상 이동 약 {slot.estimatedTravelMinutes}분 · 체류 {slot.durationMinutes}분 · 이동시간은 추정</p><p>{slot.reason}</p>
             {slot.timingUncertainty && <p className="form-hint">{slot.timingUncertainty}</p>}
