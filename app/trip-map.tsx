@@ -27,6 +27,23 @@ function pinsFor(filter: string): Pin[] {
 
 const googleMaps = (query: string) => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 const googleDirections = (query: string) => `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(query)}`;
+const escapeXml = (value: string) => value.replace(/[<>&'"]/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[char]!));
+
+// One folder (= My Maps layer) per day, so the pins can be imported into Google My Maps and
+// opened in the Google Maps app next to its downloaded offline area.
+function downloadKml() {
+  const folders = days.map((day, index) => {
+    const marks = pinsFor(day.date).map((pin) => `<Placemark><name>${escapeXml(`${pin.order}. ${pin.name}`)}</name><description>${escapeXml(`${pin.time} · ${pin.transport} · ${pin.duration}${pin.approx ? ' · 위치 추정' : ''}`)}</description><Point><coordinates>${pin.lng},${pin.lat},0</coordinates></Point></Placemark>`).join('');
+    return `<Folder><name>${escapeXml(`${dayLabel(day.date)} ${day.title}`)}</name>${marks}</Folder>`;
+  }).join('');
+  const kml = `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>우리 대만 여행 2026</name>${folders}</Document></kml>`;
+  const url = URL.createObjectURL(new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' }));
+  const anchor = document.createElement('a');
+  anchor.href = url; anchor.download = 'our-taiwan-2026.kml';
+  document.body.appendChild(anchor); anchor.click(); anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 const dayLabel = (date: string) => `${Number(date.slice(5, 7))}.${Number(date.slice(8, 10))}`;
 
 export default function TripMap() {
@@ -100,6 +117,15 @@ export default function TripMap() {
       <div className="trip-map-actions"><a className="outline-action" href={googleMaps(selected.query)} target="_blank" rel="noreferrer">구글 지도에서 보기</a><a className="outline-action" href={googleDirections(selected.query)} target="_blank" rel="noreferrer">길찾기</a></div>
     </article> : <p className="trip-map-hint">핀을 누르면 시간과 길찾기가 나와요. 숫자는 그날 순서, ★는 숙소·온천이에요. 점선은 순서를 이은 선이고 실제 경로가 아니에요.</p>}
     <ul className="trip-map-list">{pins.map((pin) => <li key={`${pin.date}-${pin.order}`}><button type="button" onClick={() => { setSelected(pin); map.current?.setView([pin.lat, pin.lng], 16); }}><span style={{ background: DAY_COLORS[pin.dayIndex] }}>{pin.order}</span><strong>{pin.name}</strong><small>{dayLabel(pin.date)} {pin.time}</small></button></li>)}</ul>
+    <section className="trip-map-offline">
+      <h2>데이터 없이 보려면 · 구글 지도 오프라인</h2>
+      <ol>
+        <li><b>오프라인 지역 받기</b>: 구글 지도 앱 → 프로필 → <b>오프라인 지도</b> → 내 지도 선택에서 타이베이, 지우펀, 우라이를 각각 받아 두기(와이파이에서).</li>
+        <li><b>우리 핀 넣기</b>: 아래 버튼으로 KML 파일을 받고, PC에서 <a href="https://www.google.com/maps/d/" target="_blank" rel="noreferrer">구글 내 지도</a> → 새 지도 → 가져오기로 올리기. 날짜별 레이어로 들어가요.</li>
+        <li><b>앱에서 열기</b>: 구글 지도 앱 → 저장됨 → <b>지도</b>에서 이 지도를 한 번 열어 두기. 출발 전에 비행기 모드로 핀이 보이는지 꼭 확인하세요(내 지도 레이어의 오프라인 표시는 공식 보장이 아니에요).</li>
+      </ol>
+      <button type="button" className="outline-action" onClick={downloadKml}>구글 내 지도용 KML 받기</button>
+    </section>
     <p className="footnote">지도: OpenStreetMap(인터넷 필요). 핀 위치는 OpenStreetMap 검색 기준이고, 일부는 근처 지점으로 추정했어요. 데이터가 없는 곳을 대비해 출발 전에 구글 지도 앱에서 <strong>오프라인 지도</strong>로 타이베이·지우펀·우라이를 받아 두세요.</p>
   </section>;
 }

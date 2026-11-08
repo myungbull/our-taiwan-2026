@@ -315,6 +315,23 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
     } catch { setCustomPins([]); }
   }, []);
 
+  const [albums, setAlbums] = useState<Record<string, { count: number; cover?: string }>>({});
+  const refreshAlbums = useCallback(async () => {
+    try {
+      const response = await fetch('/api/photos', { cache: 'no-store', credentials: 'same-origin' });
+      if (!response.ok) return;
+      const data = await response.json() as { photos: PhotoEntry[] };
+      const next: Record<string, { count: number; cover?: string }> = {};
+      for (const photo of data.photos) {
+        const entry = next[photo.date] ??= { count: 0 };
+        entry.count += 1;
+        if (!entry.cover && photo.contentType.startsWith('image/')) entry.cover = photo.imageUrl;
+      }
+      setAlbums(next);
+    } catch { /* covers are optional */ }
+  }, []);
+  useEffect(() => { if (section === 'photos') void refreshAlbums(); }, [section, refreshAlbums, photos.length]);
+
   const refreshPhotos = useCallback(async (append = false) => {
     if (activePhotoDate.current !== photoDate || (append && !photoCursor.current)) return;
     photoAbort.current?.abort();
@@ -562,7 +579,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
 
     {section === 'photos' && <>
       <section className="collab-intro"><span>02 / PHOTO DIARY</span><h2>오늘의 장면을<br/>날짜에 남겨요.</h2><p>사진과 짧은 영상은 기기에서 자동 축소해 비공개 저장소에 올립니다. 파일은 공개 URL로 제공하지 않고, 두 허용 계정의 로그인 요청을 통해서만 열립니다.</p></section>
-      <div className="date-tabs photo-date-tabs">{photoDays.map((day) => <button key={day.date} aria-pressed={photoDate === day.date} onClick={() => { setPhotoDate(day.date); onDateChange?.(day.date); }}><small>{['수','목','금','토','일'][new Date(`${day.date}T12:00:00`).getDay() === 0 ? 4 : new Date(`${day.date}T12:00:00`).getDay() - 3]}</small><b>{Number(day.date.slice(-2))}</b></button>)}</div>
+      <div className="photo-albums" role="group" aria-label="날짜별 앨범">{photoDays.map((day, index) => { const album = albums[day.date]; return <button type="button" key={day.date} className={'photo-album' + (index === 0 ? ' is-wide' : '')} aria-pressed={photoDate === day.date} onClick={() => { setPhotoDate(day.date); onDateChange?.(day.date); window.setTimeout(() => document.querySelector('.photo-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0); }}>{album?.cover ? <img src={album.cover} alt="" loading="lazy" /> : <span className={'photo-album-blank tone-' + index} aria-hidden="true" />}<span className="photo-album-count">{album?.count ?? 0}장</span><span className="photo-album-text"><small>DAY {index + 1} · {day.title.split(' · ')[0]}</small><b>{days[index]?.title ?? day.title}</b></span></button>; })}</div>
       <section className="media-usage" aria-label="사이트 미디어 저장 사용량">
         <div className="row"><div><small>PRIVATE TRIP STORAGE</small><h3>우리의 여행 저장소</h3></div><span className="usage-count">{mediaUsage.fileCount}개 파일</span></div>
         <div className="usage-total"><strong>{formatBytes(mediaUsage.usedBytes)}</strong><span>/ 10GB 참고 기준</span></div>
