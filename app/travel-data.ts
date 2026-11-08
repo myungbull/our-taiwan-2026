@@ -83,7 +83,7 @@ export const initialBudget = [
   { id: 'flight-back', label: '귀국 항공 · USD 495.95 임시 환산', planned: 656517, actual: 656517, estimated: true, paid: true },
   { id: 'taipei-hotel', label: 'Ferrary Hotel · 3박 · USD 243.26', planned: 326324, actual: 326324, estimated: false, paid: true },
   { id: 'wulai-hotel', label: '룽먼 온천 홈스테이 · 1박', planned: 150311, actual: 150311, estimated: false, paid: true },
-  { id: 'trio-spa', label: 'Trio 온천 · YingLin 90분 + 세트 메뉴 · 금액 입력 필요', planned: 0, actual: null, estimated: true, paid: true },
+  { id: 'trio-spa', label: 'Trio 온천 · YingLin 90분 + 세트 메뉴', planned: 155000, actual: 155000, estimated: false, paid: true },
   { id: 'tour', label: '예스지 투어 · 2인', planned: 100000, actual: null, estimated: true, paid: false },
   { id: 'food', label: '식비 · 2인', planned: 260000, actual: null, estimated: true, paid: false },
   { id: 'observatory', label: '101 전망대 · 2인', planned: 70000, actual: null, estimated: true, paid: false },
