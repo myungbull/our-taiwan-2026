@@ -61,13 +61,18 @@ writeFileSync(configPath, JSON.stringify({
   d1_databases: [{ binding: "DB", database_name: settings.d1DatabaseName, database_id: settings.d1DatabaseId }],
 }));
 
-function wranglerRun(commandArgs, { json = false } = {}) {
+// throwOnError lets the caller clean up (fail() exits immediately, skipping catch blocks).
+function wranglerRun(commandArgs, { json = false, throwOnError = false } = {}) {
   const result = spawnSync(process.execPath, [wrangler, ...commandArgs, "--config", configPath], { cwd: root, encoding: "utf8" });
-  if (result.status !== 0) fail("wrangler " + commandArgs.slice(0, 3).join(" ") + " failed:\n" + (result.stderr || result.stdout));
+  if (result.status !== 0) {
+    const message = "wrangler " + commandArgs.slice(0, 3).join(" ") + " failed:\n" + (result.stderr || result.stdout);
+    if (throwOnError) throw new Error(message);
+    fail(message);
+  }
   return json ? JSON.parse(result.stdout) : result.stdout;
 }
 const sql = value => "'" + String(value).replace(/'/g, "''") + "'";
-const query = statement => wranglerRun(["d1", "execute", settings.d1DatabaseName, "--remote", "--json", "--command", statement], { json: true })[0].results;
+const query = (statement, options = {}) => wranglerRun(["d1", "execute", settings.d1DatabaseName, "--remote", "--json", "--command", statement], { json: true, ...options })[0].results;
 
 // Same shape the app uploads: JPEG, longest side 1800px, under 5 MB.
 let quality = 86, jpeg;
@@ -104,9 +109,10 @@ try {
   query(`INSERT INTO photos (id,trip_date,place,caption,uploader_id,uploader_label,uploaded_at,object_key,content_type,byte_size) VALUES (${[
     id, args.date, args.place.trim().slice(0, 120), args.caption.trim().slice(0, 240), uploaderId, args["uploader-label"],
     new Date().toISOString(), objectKey, "image/jpeg",
-  ].map(sql).join(",")},${jpeg.length})`);
+  ].map(sql).join(",")},${jpeg.length})`, { throwOnError: true });
 } catch (error) {
+  // Don't leave an orphaned object in R2 when the D1 row could not be written.
   wranglerRun(["r2", "object", "delete", `${settings.r2BucketName}/${objectKey}`, "--remote"]);
-  throw error;
+  fail(error.message);
 }
 console.log(JSON.stringify({ id, date: args.date, bytes: jpeg.length }));
