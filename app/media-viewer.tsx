@@ -4,9 +4,9 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { PhotoEntry } from './collaboration';
 import HiggsfieldHandoff from './higgsfield-handoff';
 
-type MediaViewerProps = { photo: PhotoEntry; onClose: () => void; onEdit?: () => void; startWithHandoff?: boolean; onAddEdited: (file: File) => void };
+type MediaViewerProps = { photo: PhotoEntry; onClose: () => void; onEdit?: () => void; startWithHandoff?: boolean; viewerLabel?: string; onAddEdited: (file: File) => void };
 
-export default function MediaViewer({ photo, onClose, onEdit, startWithHandoff = false, onAddEdited }: MediaViewerProps) {
+export default function MediaViewer({ photo, onClose, onEdit, startWithHandoff = false, viewerLabel, onAddEdited }: MediaViewerProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
@@ -62,7 +62,7 @@ export default function MediaViewer({ photo, onClose, onEdit, startWithHandoff =
           <button type="button" className="media-viewer-edit" aria-expanded={onEdit ? undefined : handoffOpen} onClick={() => onEdit ? onEdit() : setHandoffOpen(!handoffOpen)}>힉스필드에서 편집하기 ↗</button>
         </div>
         <p className="media-viewer-hint">두 손가락으로 확대할 수 있어요. 사진은 허용된 두 계정만 볼 수 있습니다.</p>
-        {handoffOpen && <HiggsfieldHandoff photo={photo} onAddEdited={onAddEdited} />}
+        {handoffOpen && <HiggsfieldHandoff photo={photo} viewerLabel={viewerLabel} onAddEdited={onAddEdited} />}
       </div>
     </div>
   </dialog>;

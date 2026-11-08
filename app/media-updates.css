@@ -48,6 +48,7 @@
 .handoff-share{margin:16px 0 8px}
 .handoff-share-primary{display:flex;width:100%;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;border:1px solid #94505d;border-radius:12px;background:#94505d;color:#fff;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
 .handoff-share-primary:disabled{opacity:.55;cursor:wait}
+a.handoff-share-primary{box-sizing:border-box;text-decoration:none}
 .handoff-share p{margin:8px 2px 0!important;color:#806c73!important;font-size:11px!important;line-height:1.6!important}
 .handoff-fallback{margin:12px 0;padding:12px;border:1px solid #dec8c7;border-radius:12px;background:#fffaf7;color:#634750}
 .handoff-fallback summary{min-height:28px;font-size:12px;font-weight:750;cursor:pointer}

@@ -3,52 +3,77 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { PhotoEntry } from './collaboration';
 
-type Template = 'postcard' | 'place' | 'day' | 'doodle';
+type Template = 'postcard' | 'place' | 'day' | 'doodle' | 'watercolor';
 type Props = {
   photo?: PhotoEntry;
   sourceFile?: File;
   sourceDate?: string;
   sourcePlace?: string;
   sourceCaption?: string;
+  viewerLabel?: string;
   onAddEdited: (file: File) => void;
 };
-const templateLabels: Record<Template, string> = { postcard: '여행 엽서', place: '장소 안내', day: '하루 요약', doodle: '컬러 낙서 스티커' };
+// A claude.ai Code session in the cloud environment that holds the Cloudflare token
+// (docs/CLOUD_PHOTO_EDIT.md). The link only pre-fills the composer; the user still taps send.
+const CLAUDE_REPO = 'myungbull/our-taiwan-2026';
+const CLAUDE_BRANCH = 'handoff/weather-tests';
+const CLAUDE_ENVIRONMENT = 'taiwan-photo-import';
+const templateLabels: Record<Template, string> = { postcard: '여행 엽서', place: '장소 안내', day: '하루 요약', doodle: '컬러 낙서 페인팅', watercolor: '수채화 배경' };
 const templateDescriptions: Record<Template, string> = {
   postcard: '차분한 여행 엽서처럼 날짜와 장소를 담아요.',
   place: '장소 이름과 짧은 설명을 정보 카드로 정리해요.',
   day: '그날의 장면을 포토 저널 인포그래픽으로 남겨요.',
-  doodle: '사진은 그대로 두고 별·하트·꽃과 손글씨 낙서를 더해요.',
+  doodle: '옷·소품 같은 일부를 선명한 물감으로 꽉 채워 칠하고, 사진에 맞는 손글씨 낙서를 더해요.',
+  watercolor: '사람은 사진 그대로 두고, 배경만 번지는 수채화 그림으로 바꿔요.',
 };
-const CHATGPT_IMAGE_LIMIT = 20_000_000;
+const IMAGE_LIMIT = 20_000_000;
+
+// Every template is refined by the cloud session after it looks at the photo (docs/CLOUD_PHOTO_EDIT.md),
+// so the wording here describes the style and leaves photo-specific details to that analysis.
+const PHOTO_ANALYSIS = '편집 전에 사진을 먼저 살펴보고 장소·주요 사물·인물의 표정과 행동을 파악한 뒤, 그 사진에 맞게 아래 요청을 구체화해 주세요.';
 
 function makePrompt(photo: Pick<PhotoEntry, 'date' | 'place' | 'caption'>, template: Template) {
   const instructions: Record<Template, string> = {
     postcard: '따뜻하고 차분한 커플 여행 엽서로 편집해 주세요. 사진 아래에 작은 날짜와 장소, 한 줄 메모를 넣어 주세요.',
     place: '여행 장소를 소개하는 인포그래픽으로 편집해 주세요. 원본 사진을 중심에 두고 장소 이름, 날짜, 짧은 설명을 정돈된 작은 정보 상자로 배치해 주세요.',
     day: '하루의 여행을 기억하는 포토 저널 인포그래픽으로 편집해 주세요. 날짜, 장소, 오늘의 한 장면을 제목과 짧은 메모로 정리해 주세요.',
-    doodle: '원본 사진 위에 요즘 여행 사진 꾸미기처럼 생동감 있는 핸드드로잉 낙서 스티커를 더해 주세요. 사진의 인물·장면·색감은 사진 그대로 유지하고, 인물 주변의 빈 공간에 거친 검정 펜 테두리와 선명한 코발트 블루·레드·옐로·핑크·그린 포인트로 별, 하트, 꽃, 반짝임, 밑줄, 화살표를 몇 개 그려 주세요. 사진 속 소품 한두 개를 손그림 선으로 가볍게 강조하고, 사진과 어울리도록 작은 손글씨 문구 “TAIWAN DAY!”와 “GOOD VIBES”만 배치해 주세요. 낙서가 얼굴·눈·몸을 가리지 않게 하고 사진을 다시 그리거나 인물의 정체성·표정·포즈·옷·배경을 바꾸지 마세요. 인스타그램 화면이나 소셜 앱 UI를 만들지 말고 좋아요·댓글·검색·프로필 아이콘, 계정명, 조회수, 테두리, 워터마크를 추가하지 마세요. 지정한 두 문구 외에는 글자나 사실을 만들지 마세요.',
+    doodle: '요즘 유행하는 "컬러 낙서 페인팅" 사진 꾸미기로 편집해 주세요. 사진 속 옷·모자·가방·음료·간판 같은 사물이나 팔·머리카락 같은 신체 일부 2~4곳을 골라, 굵은 검정 마커 윤곽선 안을 선명한 원색 물감(코발트 블루·레드·옐로·핑크·그린)으로 사진 질감이 보이지 않게 꽉 채워 칠해 주세요. 마치 사진 위에 직접 크레용과 마커로 칠한 것처럼 납작하고 진한 색면이어야 해요. 그 주변에 사진의 분위기에 맞는 별·하트·꽃·반짝임·화살표·말풍선 낙서와 짧은 영어 손글씨 문구 1~2개를 더해 주세요. 문구는 인물의 표정과 행동, 장소에 맞게 정해 주세요(예: 먹고 있으면 음식 관련, 웃고 있으면 기분 관련). 얼굴(눈·코·입·피부)은 칠하지 말고 사진 그대로 두며, 인물의 정체성·표정·포즈는 바꾸지 마세요. 인스타그램 화면이나 소셜 앱 UI, 아이콘, 계정명, 테두리, 워터마크는 넣지 마세요.',
+    watercolor: '배경만 수채화 그림으로 바꿔 주세요. 인물은 사진 그대로(얼굴·피부·머리카락·옷·표정·포즈와 사진 질감) 유지하고 인물 윤곽을 깔끔하게 분리해 주세요. 인물 뒤의 배경은 원래 장소의 구도와 주요 형태(건물·하늘·나무·간판 등)를 살린 채, 종이 질감이 보이는 맑은 수채화로 다시 그려 주세요. 물감이 번지고 겹치는 부드러운 가장자리, 사진의 빛과 시간대에 맞는 색감을 써 주세요. 인물과 배경의 경계에는 수채화 물감이 살짝 번진 느낌을 주되 인물을 침범하지 않게 해 주세요. 글자·테두리·워터마크는 넣지 마세요.',
   };
-  const styleGuard = template === 'doodle'
-    ? '낙서 포인트는 코발트 블루·레드·옐로·핑크·그린으로 생생하게 유지해 주세요. 메타데이터를 이미지에 별도로 덧붙이지 말고 개인정보나 제공하지 않은 사실은 추가하지 마세요.'
-    : '크림색 #F6F2ED, 장미색 #94505D, 진한 글자색 #332B30을 사용하고 한국어 문구는 또렷하게 써 주세요. 개인정보나 제공하지 않은 사실은 추가하지 마세요.';
-  return `${instructions[template]}\n\n날짜: ${photo.date}\n장소: ${photo.place || '대만 여행'}\n메모: ${photo.caption || '둘이 함께 남긴 여행의 순간'}\n\n원본 인물의 얼굴과 사진 속 장면은 유지해 주세요. ${styleGuard}`;
+  const textGuard = '날짜·장소·메모에 쓰인 것 외의 사실이나 개인정보를 만들지 마세요.';
+  const styleGuard = template === 'doodle' || template === 'watercolor'
+    ? textGuard
+    : `크림색 #F6F2ED, 장미색 #94505D, 진한 글자색 #332B30을 사용하고 한국어 문구는 또렷하게 써 주세요. ${textGuard}`;
+  const place = photo.place || '(비어 있음 · 사진에서 확실히 알 수 있을 때만 쓰고, 아니면 장소 글자는 넣지 마세요)';
+  const caption = photo.caption || '(비어 있음 · 사진 속 장면에 맞는 짧은 한 줄을 지어 주세요)';
+  return `${PHOTO_ANALYSIS}\n\n${instructions[template]}\n\n날짜: ${photo.date}\n장소: ${place}\n메모: ${caption}\n\n원본 인물의 얼굴은 알아볼 수 있게 유지해 주세요. ${styleGuard}`;
 }
 
-async function fetchPhotoFile(imageUrl: string, date: string, photoId: string, signal: AbortSignal) {
-  if (!/^\/api\/photos\/[a-f0-9-]{36}$/i.test(imageUrl)) throw new Error('비공개 사진 주소를 확인하지 못했습니다. 기록을 다시 열어 주세요.');
-  const response = await fetch(imageUrl, { credentials: 'same-origin', cache: 'no-store', signal });
-  if (!response.ok) throw new Error('사진을 가져오지 못했어요. 로그인 상태를 확인한 뒤 다시 시도해 주세요.');
-  const blob = await response.blob();
-  if (!blob.type.startsWith('image/')) throw new Error('사진 파일을 확인하지 못했습니다.');
-  const extension = (blob.type.split('/')[1] || 'jpeg').toLowerCase().replace(/^jpeg$/, 'jpg').replace(/[^a-z0-9]/g, '') || 'jpg';
-  return new File([blob], `our-taiwan-${date}-${photoId.slice(0, 8)}.${extension}`, { type: blob.type });
+function makeClaudeRequest(editPrompt: string, metadata: { date: string; place: string; caption: string }, uploader: string, photoId?: string) {
+  return [
+    `대만 여행 앱 사진 편집 요청이에요. 먼저 \`git checkout ${CLAUDE_BRANCH}\` 하고 docs/CLOUD_PHOTO_EDIT.md 절차대로 진행해 주세요.`,
+    '',
+    photoId ? `사진 ID: ${photoId}` : '원본: 이 메시지에 첨부한 사진',
+    `날짜: ${metadata.date}`,
+    `장소: ${metadata.place || '(비어 있음)'}`,
+    `메모: ${metadata.caption || ''}`,
+    `올리는 사람: ${uploader}`,
+    '',
+    '편집 요청:',
+    editPrompt,
+  ].join('\n');
 }
 
-async function prepareChatGPTImage(file: File, date: string, photoId: string) {
+function claudeLink(request: string) {
+  const params = new URLSearchParams({ q: request, repo: CLAUDE_REPO, branch: CLAUDE_BRANCH, environment: CLAUDE_ENVIRONMENT });
+  return `https://claude.ai/code/new?${params.toString()}`;
+}
+
+async function prepareImageFile(file: File, date: string, photoId: string) {
   const supportedType = ['image/jpeg', 'image/png'].includes(file.type.toLowerCase());
   let blob: Blob = file;
   let extension = file.type.toLowerCase() === 'image/png' ? 'png' : 'jpg';
-  if (!supportedType || file.size > CHATGPT_IMAGE_LIMIT) {
+  if (!supportedType || file.size > IMAGE_LIMIT) {
     let bitmap: ImageBitmap | undefined;
     let image: HTMLImageElement | undefined;
     let objectUrl: string | undefined;
@@ -83,64 +108,51 @@ async function prepareChatGPTImage(file: File, date: string, photoId: string) {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     }
   }
-  if (blob.size > CHATGPT_IMAGE_LIMIT) throw new Error('공유용 사진이 20MB를 넘어요. 해상도를 낮춰 다시 저장해 주세요.');
+  if (blob.size > IMAGE_LIMIT) throw new Error('공유용 사진이 20MB를 넘어요. 해상도를 낮춰 다시 저장해 주세요.');
   const fileExtension = extension;
   const mimeType = blob.type || (fileExtension === 'png' ? 'image/png' : fileExtension === 'gif' ? 'image/gif' : 'image/jpeg');
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : 'travel';
   return new File([blob], `our-taiwan-${safeDate}-${photoId.slice(0, 8)}.${fileExtension}`, { type: mimeType });
 }
 
-export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', sourcePlace = '', sourceCaption = '', onAddEdited }: Props) {
+export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', sourcePlace = '', sourceCaption = '', viewerLabel, onAddEdited }: Props) {
   const metadata = useMemo(() => ({ date: photo?.date ?? sourceDate, place: photo?.place ?? sourcePlace, caption: photo?.caption ?? sourceCaption }), [photo?.date, photo?.place, photo?.caption, sourceDate, sourcePlace, sourceCaption]);
   const [template, setTemplate] = useState<Template>('postcard');
   const [prompt, setPrompt] = useState(() => makePrompt(metadata, 'postcard'));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [preparing, setPreparing] = useState(true);
-  const [shareAvailable, setShareAvailable] = useState(false);
+  const [preparing, setPreparing] = useState(Boolean(sourceFile));
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const promptRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
   const promptId = useId();
   const titleId = useId();
+  const uploader = viewerLabel || photo?.uploader || '여행자 A';
+  const claudeRequest = useMemo(() => makeClaudeRequest(prompt, metadata, uploader, photo?.id), [prompt, metadata, uploader, photo?.id]);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
   useEffect(() => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    setPreparing(true); setPhotoFile(null); setShareAvailable(false); setError('');
-    setTemplate('postcard'); setPrompt(makePrompt(metadata, 'postcard'));
-    if (!sourceFile && !photo) {
-      setPreparing(false);
-      setError('사진 파일을 선택해 주세요.');
-      return () => controller.abort();
-    }
-    const load = sourceFile ? Promise.resolve(sourceFile) : fetchPhotoFile(photo!.imageUrl, photo!.date, photo!.id, controller.signal);
-    void load.then((file) => prepareChatGPTImage(file, metadata.date, photo?.id ?? 'upload')).then((file) => {
-      if (controller.signal.aborted) return;
-      setPhotoFile(file);
-      try { setShareAvailable(typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })); }
-      catch { setShareAvailable(false); }
-    }).catch((cause) => {
-      if (!controller.signal.aborted) {
-        setPhotoFile(sourceFile ?? null);
-        setShareAvailable(false);
-        setError(cause instanceof Error ? cause.message : '공유용 사진을 준비하지 못했습니다. 아래 저장 후 직접 첨부 방법을 이용해 주세요.');
-      }
-    }).finally(() => { if (!controller.signal.aborted) setPreparing(false); });
-    return () => controller.abort();
-  }, [metadata, photo?.imageUrl, photo?.date, photo?.id, sourceFile]);
+    setTemplate('postcard'); setPrompt(makePrompt(metadata, 'postcard')); setError(''); setStatus('');
+  }, [metadata]);
+  // Only a photo that is not in the app yet has to be attached in Claude, so only that one is prepared for saving.
+  useEffect(() => {
+    if (!sourceFile) { setPhotoFile(null); setPreparing(false); return; }
+    let cancelled = false;
+    setPreparing(true);
+    void prepareImageFile(sourceFile, metadata.date, 'upload')
+      .then((file) => { if (!cancelled) setPhotoFile(file); })
+      .catch(() => { if (!cancelled) setPhotoFile(sourceFile); })
+      .finally(() => { if (!cancelled) setPreparing(false); });
+    return () => { cancelled = true; };
+  }, [sourceFile, metadata.date]);
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => panelRef.current?.scrollIntoView({ block: 'nearest' }));
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
   async function savePhoto() {
-    if (!photoFile) { setError('사진을 준비하지 못했어요. 기록을 다시 열어 주세요.'); return; }
+    if (!photoFile) { setError('사진을 준비하지 못했어요. 사진을 다시 선택해 주세요.'); return; }
     setSaving(true); setStatus(''); setError('');
     try {
       const source = URL.createObjectURL(photoFile);
@@ -149,53 +161,55 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
       anchor.download = photoFile.name;
       document.body.appendChild(anchor); anchor.click(); anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(source), 60000);
-      setStatus('사진 저장을 요청했어요. iPhone에서는 다운로드한 파일을 확인해 주세요.');
+      setStatus('사진 저장을 요청했어요. Claude에서 ＋를 눌러 이 사진을 첨부해 주세요.');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : '사진을 저장하지 못했습니다.');
     } finally { setSaving(false); }
   }
 
-  async function shareToChatGPT() {
-    setError(''); setStatus('');
-    if (!photoFile || !shareAvailable || !navigator.share) {
-      setError('이 브라우저에서 사진 공유를 지원하지 않습니다. 아래 저장·복사 방법을 이용해 주세요.');
-      return;
-    }
+  async function copyRequest() {
+    setError('');
     try {
-      await navigator.share({ files: [photoFile], title: 'Our Taiwan 2026 사진 편집', text: prompt });
-      setStatus('공유 메뉴를 닫았어요. ChatGPT를 선택했다면 사진이 대화에 첨부됐는지 확인한 뒤 Higgsfield에서 편집해 주세요.');
-    } catch (cause) {
-      if (cause instanceof DOMException && cause.name === 'AbortError') setStatus('공유를 취소했어요. 원본 사진은 변경되지 않았습니다.');
-      else setError(cause instanceof Error ? cause.message : '공유 메뉴를 열지 못했습니다. 아래 저장·복사 방법을 이용해 주세요.');
+      await navigator.clipboard.writeText(claudeRequest);
+      setStatus('Claude 요청문을 복사했어요. 입력칸이 비어 있으면 붙여 넣어 주세요.');
+    } catch {
+      promptRef.current?.focus(); promptRef.current?.select();
+      setStatus('복사하지 못했어요. 아래 편집 요청을 길게 눌러 복사해 주세요.');
     }
   }
 
-  async function copyPrompt() {
-    setError('');
-    try {
-      await navigator.clipboard.writeText(prompt);
-      setStatus('편집 요청 문구를 복사했어요. 힉스필드에 사진과 함께 붙여 넣어 주세요.');
-    } catch {
-      promptRef.current?.focus(); promptRef.current?.select();
-      setStatus('아래 문구를 선택했어요. 길게 눌러 복사한 뒤 힉스필드에 붙여 넣어 주세요.');
-    }
+  function openedClaude() {
+    // Backup in case the app opens without the pre-filled text.
+    void navigator.clipboard?.writeText(claudeRequest).catch(() => undefined);
+    setStatus(photo ? 'Claude에서 보내기만 누르면 돼요. 완성되면 앱을 새로고침해 주세요.' : 'Claude에서 ＋로 사진을 첨부한 뒤 보내기를 눌러 주세요. 완성되면 앱을 새로고침해 주세요.');
   }
 
   return <section ref={panelRef} className="higgsfield-handoff" aria-labelledby={titleId}>
     <div className="handoff-title"><span>PHOTO STUDIO</span><h3 id={titleId}>사진에 여행 이야기를 더해요</h3></div>
-    <p>{sourceFile ? '기록에 업로드하기 전에 사진을 먼저 편집할 수 있어요. 원본은 사이트에 올리지 않고 기기에서 공유합니다.' : '별도 Higgsfield 앱 없이 iPhone 공유 메뉴로 사진과 편집 요청을 전달합니다.'}</p>
-    <ol className="handoff-steps"><li><strong>사진과 요청문 보내기</strong><span>공유 메뉴에서 ChatGPT를 선택해요. Higgsfield 도구가 ChatGPT 계정에 보일 때만 직접 선택할 수 있고, 없으면 아래 편집기 링크에서 사진과 요청문을 사용해 주세요.</span></li><li><strong>Higgsfield에서 편집·저장하기</strong><span>편집기에서 사진을 열고 요청문을 붙여 넣어요. 서비스 전환과 결과 저장은 직접 해야 하며 자동화되지 않습니다.</span></li><li><strong>편집본 확인 후 올리기</strong><span>편집본을 선택해 미리본 뒤 이 날짜의 비공개 기록에 추가해요.</span></li></ol>
+    <p>Claude가 힉스필드로 사진을 편집하고, 완성본을 이 날짜의 기록에 바로 추가해요. 원본 기록은 그대로 남아요.</p>
+    <ol className="handoff-steps">
+      <li><strong>스타일 고르기</strong><span>아래에서 스타일을 고르고, 필요하면 편집 요청을 고쳐요.</span></li>
+      <li><strong>Claude로 보내기</strong><span>{photo ? 'Claude가 열리면 요청문이 채워져 있어요. 사진은 Claude가 기록에서 직접 가져오니 보내기만 누르면 돼요.' : '이 사진은 아직 기록에 없어서, Claude가 열리면 ＋로 사진을 첨부한 뒤 보내기를 눌러요.'}</span></li>
+      <li><strong>완성되면 새로고침</strong><span>보통 몇 분 걸려요. Claude에 결과가 나오면 앱을 새로고침해 기록을 확인해요.</span></li>
+    </ol>
     <div className="handoff-template" aria-label="사진 편집 스타일">{(Object.keys(templateLabels) as Template[]).map((value) => <button type="button" key={value} aria-pressed={template === value} onClick={() => { setTemplate(value); setPrompt(makePrompt(metadata, value)); setStatus(''); }}>{templateLabels[value]}</button>)}</div>
     <p className="handoff-template-description" aria-live="polite">{templateDescriptions[template]}</p>
-    <label htmlFor={promptId}>힉스필드에 보낼 편집 요청 문구</label>
+    <label htmlFor={promptId}>편집 요청</label>
     <textarea id={promptId} ref={promptRef} rows={8} maxLength={2400} value={prompt} onChange={(event) => setPrompt(event.target.value)} />
-    <div className="handoff-share"><button type="button" className="handoff-share-primary" disabled={preparing || !shareAvailable} onClick={() => void shareToChatGPT()}>{preparing ? '공유용 사진 준비 중…' : shareAvailable ? '공유 메뉴 열기 · 사진+요청문' : '이 브라우저는 사진 공유를 지원하지 않아요'}</button><p>{shareAvailable ? '공유 메뉴에 ChatGPT가 보이면 선택하세요. 이 버튼은 공유 대상을 강제로 추가할 수는 없습니다.' : '아래에서 사진을 파일로 저장하고 요청문을 복사해 ChatGPT에 직접 첨부할 수 있어요.'}</p></div>
-    <details className="handoff-fallback"><summary>공유 목록에 ChatGPT가 안 보이나요?</summary><ol><li>공식 ChatGPT 앱이 설치·최신 버전인지 확인한 뒤, 공유 창의 앱 아이콘 줄을 왼쪽으로 밀고 <strong>더 보기 → 편집</strong>에서 ChatGPT가 있으면 켜고 즐겨찾기에 추가해요.</li><li>목록에 없으면 이 사이트에서 앱을 추가할 수 없어요. 공유 창의 <strong>이미지 저장</strong> 또는 아래 <strong>사진 파일로 저장</strong>을 사용해 사진을 기기에 저장하고 요청문을 복사해 주세요.</li><li>ChatGPT를 직접 쓰려면 <strong>＋ → 사진 또는 파일</strong>에서 첨부하고 요청문을 붙여 넣어요. Higgsfield 편집은 아래 편집기 링크를 열어 저장한 사진과 요청문으로 진행해 주세요. 어느 쪽이든 결과를 저장한 뒤 사이트에서 편집본을 다시 선택해요.</li></ol><a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT 열기 · 직접 첨부 ↗</a></details>
-    <div className="handoff-actions"><button type="button" disabled={saving || preparing || !photoFile} onClick={() => void savePhoto()}>{saving ? '사진 저장 중…' : '사진 파일로 저장'}</button><button type="button" onClick={() => void copyPrompt()}>요청문 복사</button><a href="https://higgsfield.ai/layers" target="_blank" rel="noreferrer">Higgsfield 편집기 열기 ↗</a></div>
-    <div className="handoff-chatgpt-direct"><p><strong>공유 앱 목록에 ChatGPT가 없으면</strong><span>iOS 앱 목록은 사이트에서 바꿀 수 없어요. 사진을 저장하고 요청문을 복사한 뒤 ChatGPT를 열어 ＋에서 사진을 직접 첨부해 주세요.</span></p><a href="https://chatgpt.com/" target="_blank" rel="noreferrer">ChatGPT 직접 열기 ↗</a></div>
-    <button type="button" className="handoff-return" onClick={() => inputRef.current?.click()}>편집본 선택해 기록에 추가</button>
-    <input ref={inputRef} type="file" accept="image/*" className="visually-hidden" tabIndex={-1} aria-label="힉스필드에서 편집한 이미지 선택" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) onAddEdited(file); }} />
-    <p className="handoff-footnote">사진을 외부로 보내면 ChatGPT/Higgsfield가 처리합니다. 사이트가 ChatGPT 세션이나 Higgsfield를 자동 실행하거나 편집본을 자동으로 가져오지는 않아요. 결과는 직접 저장하고 선택해 비공개 여행 기록에 추가해 주세요. 외부 서비스의 이용권·비용과 데이터 처리는 각 서비스 기준입니다.</p>
+    <div className="handoff-share">
+      <a className="handoff-share-primary" href={claudeLink(claudeRequest)} target="_blank" rel="noreferrer" onClick={openedClaude}>Claude로 보내기 ↗</a>
+      <p>환경 <strong>{CLAUDE_ENVIRONMENT}</strong>와 저장소가 자동으로 선택돼요. 다른 환경이 보이면 바꾼 뒤 보내 주세요. 한 장에 힉스필드 약 1크레딧이 들어요.</p>
+    </div>
+    <div className="handoff-actions">
+      {!photo && <button type="button" disabled={saving || preparing || !photoFile} onClick={() => void savePhoto()}>{preparing ? '사진 준비 중…' : saving ? '사진 저장 중…' : '첨부할 사진 저장'}</button>}
+      <button type="button" onClick={() => void copyRequest()}>Claude 요청문 복사</button>
+    </div>
+    <details className="handoff-fallback"><summary>다른 곳에서 편집한 사진이 있나요?</summary>
+      <p className="handoff-footnote">힉스필드 웹이나 다른 앱에서 직접 편집했다면, 저장한 편집본을 골라 이 날짜의 기록에 추가할 수 있어요.</p>
+      <button type="button" className="handoff-return" onClick={() => inputRef.current?.click()}>편집본 선택해 기록에 추가</button>
+      <input ref={inputRef} type="file" accept="image/*" className="visually-hidden" tabIndex={-1} aria-label="편집한 이미지 선택" onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) onAddEdited(file); }} />
+    </details>
+    <p className="handoff-footnote">사진은 Claude와 힉스필드로 보내져 처리돼요. 힉스필드 약관상 올린 사진과 결과가 모델 학습에 쓰일 수 있어요.</p>
     {status && <p className="handoff-status" role="status">{status}</p>}{error && <p className="error" role="alert">{error}</p>}
   </section>;
 }

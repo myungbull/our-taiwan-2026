@@ -99,3 +99,5 @@ Claude Code 클라우드 환경(claude.ai/code 환경 설정)에 다음을 둡�
 - **네트워크 접근**: Custom + 기본 목록 포함, 추가 도메인 `upload.higgsfield.ai`, `*.cloudfront.net`(힉스필드 업로드·결과 이미지). 힉스필드 MCP 커넥터 자체는 허용 목록 없이 동작합니다.
 
 세션에서는 `npm ci` 후 이 브랜치의 스크립트를 `--dry-run`으로 먼저 확인합니다.
+
+앱 사진 편집 패널의 **Claude로 보내기**는 `claude.ai/code/new` 링크로 요청문·저장소·환경을 채운 새 세션을 엽니다(보내기는 사용자가 누름). 2026-11-08 PC Chrome에서 환경·저장소·요청문 채움은 확인했고, 브랜치는 `main`으로 남아 요청문에 브랜치 전환을 넣었습니다. 이미 기록에 있는 사진은 세션이 `scripts/fetch-trip-photo.mjs`로 직접 받아 첨부가 필요 없습니다. 세션 절차는 [CLOUD_PHOTO_EDIT.md](CLOUD_PHOTO_EDIT.md)에 있습니다. 휴대폰 Claude 앱에서 링크가 같은 값을 채우는지는 미확인입니다.
