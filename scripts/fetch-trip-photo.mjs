@@ -2,7 +2,9 @@
 // session can edit a photo that is already in the app without the user attaching it.
 // Uses the same D1/R2 settings and wrangler auth as scripts/import-edited-photo.mjs.
 //   node scripts/fetch-trip-photo.mjs --id <photo id> --out source.jpg
-// Prints the photo's date, place, caption and uploader label as JSON.
+//   node scripts/fetch-trip-photo.mjs --source <staged id> --out source.jpg   (photo not in the diary yet)
+//   node scripts/fetch-trip-photo.mjs --source <staged id> --cleanup          (delete it after the import)
+// Prints the photo's date, place, caption and uploader label as JSON (--id only).
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,9 +20,13 @@ function fail(message) {
   process.exit(1);
 }
 
-const { values: args } = parseArgs({ options: { id: { type: "string" }, out: { type: "string" } } });
-if (!/^[a-f0-9-]{36}$/i.test(args.id ?? "")) fail("--id must be a photo id (UUID).");
-if (!args.out) fail("--out must name the file to write.");
+const { values: args } = parseArgs({ options: { id: { type: "string" }, source: { type: "string" }, out: { type: "string" }, cleanup: { type: "boolean", default: false } } });
+const uuid = /^[a-f0-9-]{36}$/i;
+if (Boolean(args.id) === Boolean(args.source)) fail("pass exactly one of --id (diary photo) or --source (staged photo).");
+if (args.id && !uuid.test(args.id)) fail("--id must be a photo id (UUID).");
+if (args.source && !uuid.test(args.source)) fail("--source must be a staged photo id (UUID).");
+if (args.cleanup && !args.source) fail("--cleanup only applies to --source.");
+if (!args.cleanup && !args.out) fail("--out must name the file to write.");
 
 const settingsPath = path.join(root, ".standalone.json");
 const settings = existsSync(settingsPath) ? JSON.parse(readFileSync(settingsPath, "utf8")) : {
@@ -46,6 +52,19 @@ function wranglerRun(commandArgs) {
   const result = spawnSync(process.execPath, [wrangler, ...commandArgs, "--config", configPath], { cwd: root, encoding: "utf8" });
   if (result.status !== 0) fail("wrangler " + commandArgs.slice(0, 3).join(" ") + " failed:\n" + (result.stderr || result.stdout));
   return result.stdout;
+}
+
+// Staged photos (POST /api/edit-sources) live only in R2, under edit-source/<id>.jpg.
+if (args.source) {
+  const key = `${settings.r2BucketName}/edit-source/${args.source.toLowerCase()}.jpg`;
+  if (args.cleanup) {
+    wranglerRun(["r2", "object", "delete", key, "--remote"]);
+    console.log(JSON.stringify({ source: args.source, deleted: true }));
+  } else {
+    wranglerRun(["r2", "object", "get", key, "--file", path.resolve(args.out), "--remote"]);
+    console.log(JSON.stringify({ source: args.source, file: args.out }));
+  }
+  process.exit(0);
 }
 
 const rows = JSON.parse(wranglerRun(["d1", "execute", settings.d1DatabaseName, "--remote", "--json", "--command",

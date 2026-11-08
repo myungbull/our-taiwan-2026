@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { days } from './travel-data';
 import MediaViewer from './media-viewer';
 import HiggsfieldHandoff from './higgsfield-handoff';
+import { canvasToBlob, isFrontCameraPhoto, mirrorPhotoFile, photoToCanvas } from './image-canvas';
 import './media-updates.css';
 
 type Slot = {
@@ -64,37 +65,10 @@ const distanceMeters = (aLat: number, aLng: number, bLat: number, bLng: number) 
 };
 
 async function compressPhoto(file: File): Promise<Blob> {
-  let canvas: HTMLCanvasElement;
-  let width: number;
-  let height: number;
-  let bitmap: ImageBitmap | undefined;
-  if (typeof createImageBitmap === 'function') {
-    try { bitmap = await createImageBitmap(file); } catch { bitmap = undefined; }
-  }
-  if (bitmap) {
-    width = bitmap.width;
-    height = bitmap.height;
-    canvas = document.createElement('canvas');
-    const scale = Math.min(1, 1800 / Math.max(width, height));
-    canvas.width = Math.max(1, Math.round(width * scale));
-    canvas.height = Math.max(1, Math.round(height * scale));
-    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-  } else {
-    const source = URL.createObjectURL(file);
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error('이 사진 형식은 브라우저에서 읽을 수 없습니다.')); img.src = source;
-      });
-      width = image.naturalWidth; height = image.naturalHeight;
-      const scale = Math.min(1, 1800 / Math.max(width, height));
-      canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(width * scale)); canvas.height = Math.max(1, Math.round(height * scale));
-      canvas.getContext('2d')!.drawImage(image, 0, 0, canvas.width, canvas.height);
-    } finally { URL.revokeObjectURL(source); }
-  }
-  const webp = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('사진 크기를 줄이지 못했습니다.')), 'image/webp', 0.8));
+  const canvas = await photoToCanvas(file, 1800);
+  const webp = await canvasToBlob(canvas, 'image/webp', 0.8);
   if (webp.type === 'image/webp') return webp;
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('사진 미리보기를 만들지 못했습니다.')), 'image/jpeg', 0.82));
+  return canvasToBlob(canvas, 'image/jpeg', 0.82);
 }
 
 async function compressVideo(file: File, onProgress: (value: number) => void): Promise<Blob> {
@@ -221,6 +195,9 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
   const [photoPlace, setPhotoPlace] = useState('');
   const [photoCaption, setPhotoCaption] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<File | null>(null);
+  const [mirrored, setMirrored] = useState<'auto' | 'manual' | null>(null);
+  const [flipping, setFlipping] = useState(false);
+  const latestPick = useRef<File | null>(null);
   const [uploadHandoffOpen, setUploadHandoffOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadStage, setUploadStage] = useState('');
@@ -265,8 +242,28 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
 
   function selectMedia(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (file) { setSelectedMedia(file); setUploadHandoffOpen(false); setPhotoError(''); }
+    const fromCamera = event.target === cameraInputRef.current;
     event.target.value = '';
+    if (!file) return;
+    latestPick.current = file;
+    setSelectedMedia(file); setMirrored(null); setUploadHandoffOpen(false); setPhotoError('');
+    // The web camera input saves front-camera photos un-mirrored, unlike the phone's camera app,
+    // so match the camera app for selfies taken here. Library photos are left as they are.
+    if (fromCamera && file.type.startsWith('image/')) {
+      void isFrontCameraPhoto(file).then((front) => front ? mirrorPhotoFile(file).then((flipped) => {
+        if (latestPick.current !== file) return;
+        latestPick.current = flipped;
+        setSelectedMedia(flipped); setMirrored('auto');
+      }) : undefined).catch(() => undefined);
+    }
+  }
+
+  async function flipSelectedPhoto() {
+    if (!selectedMedia?.type.startsWith('image/')) return;
+    setFlipping(true); setPhotoError('');
+    try { const flipped = await mirrorPhotoFile(selectedMedia); latestPick.current = flipped; setSelectedMedia(flipped); setMirrored((value) => value ? null : 'manual'); }
+    catch { setPhotoError('사진을 뒤집지 못했어요. 다시 시도해 주세요.'); }
+    finally { setFlipping(false); }
   }
 
   function openPhoto(photo: PhotoEntry, edit = false) {
@@ -580,7 +577,7 @@ export default function Collaboration({ onScheduleChange, activeSection, hideNav
           <input ref={videoInputRef} className="visually-hidden" type="file" accept="video/*" aria-label="영상 보관함에서 선택" tabIndex={-1} onChange={selectMedia} />
           <input ref={videoCameraInputRef} className="visually-hidden" type="file" accept="video/*" capture="environment" aria-label="영상 촬영" tabIndex={-1} onChange={selectMedia} />
         </div>
-        {selectedMedia && mediaPreview && (selectedMedia.type.startsWith('video/') ? <video className="photo-preview" src={mediaPreview} controls playsInline preload="metadata" aria-label="업로드 전 선택한 영상 미리보기" /> : <img className="photo-preview" src={mediaPreview} alt="업로드 전 선택한 사진 미리보기" />)}
+        {selectedMedia && mediaPreview && (selectedMedia.type.startsWith('video/') ? <video className="photo-preview" src={mediaPreview} controls playsInline preload="metadata" aria-label="업로드 전 선택한 영상 미리보기" /> : <><img className="photo-preview" src={mediaPreview} alt="업로드 전 선택한 사진 미리보기" /><div className="photo-flip-row"><button type="button" className="outline-button" disabled={uploading || flipping} onClick={() => void flipSelectedPhoto()}>{flipping ? '뒤집는 중…' : '↔ 좌우 뒤집기'}</button><small>{mirrored === 'auto' ? '셀카라서 카메라 앱처럼 좌우를 맞췄어요. 반대로 보이면 눌러 주세요.' : mirrored === 'manual' ? '좌우를 뒤집었어요.' : '좌우가 반대로 보이면 눌러 주세요.'}</small></div></>)}
         <label>장소<input maxLength={120} value={photoPlace} onChange={(event) => setPhotoPlace(event.target.value)} placeholder="예: 지우펀 홍등 골목" /></label>
         <label>짧은 메모<textarea rows={2} maxLength={240} value={photoCaption} onChange={(event) => setPhotoCaption(event.target.value)} placeholder="그날 기억하고 싶은 한 문장" /></label>
         {selectedMedia && selectedMedia.type.startsWith('image/') && <div className="upload-edit-callout"><div><strong>올리기 전에 사진 편집하기</strong><p>원본을 올리기 전에 Claude에게 힉스필드 편집을 맡길 수 있어요.</p></div><button type="button" aria-expanded={uploadHandoffOpen} onClick={() => setUploadHandoffOpen((open) => !open)}>{uploadHandoffOpen ? '편집 닫기' : '힉스필드 편집 준비'}</button></div>}

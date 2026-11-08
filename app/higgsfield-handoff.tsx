@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { PhotoEntry } from './collaboration';
+import { canvasToBlob, photoToCanvas } from './image-canvas';
 
 type Template = 'postcard' | 'place' | 'day' | 'doodle' | 'watercolor';
 type Props = {
@@ -26,7 +27,7 @@ const templateDescriptions: Record<Template, string> = {
   doodle: '옷·소품 같은 일부를 선명한 물감으로 꽉 채워 칠하고, 사진에 맞는 손글씨 낙서를 더해요.',
   watercolor: '사람은 사진 그대로 두고, 배경만 번지는 수채화 그림으로 바꿔요.',
 };
-const IMAGE_LIMIT = 20_000_000;
+const IMAGE_LIMIT = 5_000_000;
 
 // Every template is refined by the cloud session after it looks at the photo (docs/CLOUD_PHOTO_EDIT.md),
 // so the wording here describes the style and leaves photo-specific details to that analysis.
@@ -49,11 +50,11 @@ function makePrompt(photo: Pick<PhotoEntry, 'date' | 'place' | 'caption'>, templ
   return `${PHOTO_ANALYSIS}\n\n${instructions[template]}\n\n날짜: ${photo.date}\n장소: ${place}\n메모: ${caption}\n\n원본 인물의 얼굴은 알아볼 수 있게 유지해 주세요. ${styleGuard}`;
 }
 
-function makeClaudeRequest(editPrompt: string, metadata: { date: string; place: string; caption: string }, uploader: string, photoId?: string) {
+function makeClaudeRequest(editPrompt: string, metadata: { date: string; place: string; caption: string }, uploader: string, photoId?: string, sourceId?: string) {
   return [
     `대만 여행 앱 사진 편집 요청이에요. 먼저 \`git checkout ${CLAUDE_BRANCH}\` 하고 docs/CLOUD_PHOTO_EDIT.md 절차대로 진행해 주세요.`,
     '',
-    photoId ? `사진 ID: ${photoId}` : '원본: 이 메시지에 첨부한 사진',
+    photoId ? `사진 ID: ${photoId}` : sourceId ? `편집용 원본 ID: ${sourceId} (아직 기록에 없는 사진)` : '원본: 이 메시지에 첨부한 사진',
     `날짜: ${metadata.date}`,
     `장소: ${metadata.place || '(비어 있음)'}`,
     `메모: ${metadata.caption || ''}`,
@@ -69,50 +70,13 @@ function claudeLink(request: string) {
   return `https://claude.ai/code/new?${params.toString()}`;
 }
 
-async function prepareImageFile(file: File, date: string, photoId: string) {
-  const supportedType = ['image/jpeg', 'image/png'].includes(file.type.toLowerCase());
-  let blob: Blob = file;
-  let extension = file.type.toLowerCase() === 'image/png' ? 'png' : 'jpg';
-  if (!supportedType || file.size > IMAGE_LIMIT) {
-    let bitmap: ImageBitmap | undefined;
-    let image: HTMLImageElement | undefined;
-    let objectUrl: string | undefined;
-    try {
-      if (typeof createImageBitmap === 'function') {
-        try { bitmap = await createImageBitmap(file); } catch { bitmap = undefined; }
-      }
-      if (!bitmap) {
-        objectUrl = URL.createObjectURL(file);
-        image = await new Promise<HTMLImageElement>((resolve, reject) => {
-          const element = new Image();
-          element.onload = () => resolve(element);
-          element.onerror = () => reject(new Error('이 사진 형식은 브라우저에서 JPEG로 변환할 수 없습니다.'));
-          element.src = objectUrl!;
-        });
-      }
-      const width = bitmap?.width ?? image?.naturalWidth ?? 0;
-      const height = bitmap?.height ?? image?.naturalHeight ?? 0;
-      if (!width || !height) throw new Error('사진 크기를 읽지 못했습니다.');
-      const scale = Math.min(1, 1800 / Math.max(width, height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(width * scale));
-      canvas.height = Math.max(1, Math.round(height * scale));
-      const context = canvas.getContext('2d', { alpha: false });
-      if (!context) throw new Error('공유용 사진을 변환하지 못했습니다.');
-      context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(bitmap ?? image!, 0, 0, canvas.width, canvas.height);
-      blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((result) => result ? resolve(result) : reject(new Error('공유용 JPEG를 만들지 못했습니다.')), 'image/jpeg', 0.84));
-      extension = 'jpg';
-    } finally {
-      bitmap?.close();
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    }
-  }
-  if (blob.size > IMAGE_LIMIT) throw new Error('공유용 사진이 20MB를 넘어요. 해상도를 낮춰 다시 저장해 주세요.');
-  const fileExtension = extension;
-  const mimeType = blob.type || (fileExtension === 'png' ? 'image/png' : fileExtension === 'gif' ? 'image/gif' : 'image/jpeg');
+// Always re-encoded the right way up (selfies carry EXIF rotation), as a JPEG under 5 MB.
+async function prepareImageFile(file: File, date: string) {
+  const canvas = await photoToCanvas(file, 1800);
+  const blob = await canvasToBlob(canvas, 'image/jpeg', 0.84);
+  if (blob.size > IMAGE_LIMIT) throw new Error('사진이 5MB를 넘어요. 해상도를 낮춰 다시 골라 주세요.');
   const safeDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : 'travel';
-  return new File([blob], `our-taiwan-${safeDate}-${photoId.slice(0, 8)}.${fileExtension}`, { type: mimeType });
+  return new File([blob], `our-taiwan-${safeDate}-edit.jpg`, { type: 'image/jpeg' });
 }
 
 export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', sourcePlace = '', sourceCaption = '', viewerLabel, onAddEdited }: Props) {
@@ -121,7 +85,8 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
   const [prompt, setPrompt] = useState(() => makePrompt(metadata, 'postcard'));
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [preparing, setPreparing] = useState(Boolean(sourceFile));
-  const [saving, setSaving] = useState(false);
+  const [staging, setStaging] = useState(false);
+  const [sourceId, setSourceId] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -130,19 +95,20 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
   const promptId = useId();
   const titleId = useId();
   const uploader = viewerLabel || photo?.uploader || '여행자 A';
-  const claudeRequest = useMemo(() => makeClaudeRequest(prompt, metadata, uploader, photo?.id), [prompt, metadata, uploader, photo?.id]);
+  const claudeRequest = useMemo(() => makeClaudeRequest(prompt, metadata, uploader, photo?.id, sourceId ?? undefined), [prompt, metadata, uploader, photo?.id, sourceId]);
 
   useEffect(() => {
     setTemplate('postcard'); setPrompt(makePrompt(metadata, 'postcard')); setError(''); setStatus('');
   }, [metadata]);
   // Only a photo that is not in the app yet has to be attached in Claude, so only that one is prepared for saving.
   useEffect(() => {
+    setSourceId(null);
     if (!sourceFile) { setPhotoFile(null); setPreparing(false); return; }
     let cancelled = false;
     setPreparing(true);
-    void prepareImageFile(sourceFile, metadata.date, 'upload')
+    void prepareImageFile(sourceFile, metadata.date)
       .then((file) => { if (!cancelled) setPhotoFile(file); })
-      .catch(() => { if (!cancelled) setPhotoFile(sourceFile); })
+      .catch((cause) => { if (!cancelled) { setPhotoFile(null); setError(cause instanceof Error ? cause.message : '사진을 준비하지 못했어요.'); } })
       .finally(() => { if (!cancelled) setPreparing(false); });
     return () => { cancelled = true; };
   }, [sourceFile, metadata.date]);
@@ -151,20 +117,21 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
-  async function savePhoto() {
+  // A photo that is not in the diary yet is staged privately so the cloud session can fetch it.
+  async function stageSource() {
     if (!photoFile) { setError('사진을 준비하지 못했어요. 사진을 다시 선택해 주세요.'); return; }
-    setSaving(true); setStatus(''); setError('');
+    setStaging(true); setStatus(''); setError('');
     try {
-      const source = URL.createObjectURL(photoFile);
-      const anchor = document.createElement('a');
-      anchor.href = source;
-      anchor.download = photoFile.name;
-      document.body.appendChild(anchor); anchor.click(); anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(source), 60000);
-      setStatus('사진 저장을 요청했어요. Claude에서 ＋를 눌러 이 사진을 첨부해 주세요.');
+      const form = new FormData();
+      form.append('media', photoFile);
+      const response = await fetch('/api/edit-sources', { method: 'POST', body: form, credentials: 'same-origin' });
+      const body = await response.json().catch(() => null) as { id?: string; error?: string } | null;
+      if (!response.ok || !body?.id) throw new Error(body?.error || '편집할 사진을 올리지 못했어요. 다시 시도해 주세요.');
+      setSourceId(body.id);
+      setStatus('사진을 올렸어요. 이제 Claude로 보내기를 눌러 주세요.');
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : '사진을 저장하지 못했습니다.');
-    } finally { setSaving(false); }
+      setError(cause instanceof Error ? cause.message : '편집할 사진을 올리지 못했어요.');
+    } finally { setStaging(false); }
   }
 
   async function copyRequest() {
@@ -181,7 +148,7 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
   function openedClaude() {
     // Backup in case the app opens without the pre-filled text.
     void navigator.clipboard?.writeText(claudeRequest).catch(() => undefined);
-    setStatus(photo ? 'Claude에서 보내기만 누르면 돼요. 완성되면 앱을 새로고침해 주세요.' : 'Claude에서 ＋로 사진을 첨부한 뒤 보내기를 눌러 주세요. 완성되면 앱을 새로고침해 주세요.');
+    setStatus('Claude에서 보내기만 누르면 돼요. 완성되면 앱을 새로고침해 주세요.');
   }
 
   return <section ref={panelRef} className="higgsfield-handoff" aria-labelledby={titleId}>
@@ -189,7 +156,7 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
     <p>Claude가 힉스필드로 사진을 편집하고, 완성본을 이 날짜의 기록에 바로 추가해요. 원본 기록은 그대로 남아요.</p>
     <ol className="handoff-steps">
       <li><strong>스타일 고르기</strong><span>아래에서 스타일을 고르고, 필요하면 편집 요청을 고쳐요.</span></li>
-      <li><strong>Claude로 보내기</strong><span>{photo ? 'Claude가 열리면 요청문이 채워져 있어요. 사진은 Claude가 기록에서 직접 가져오니 보내기만 누르면 돼요.' : '이 사진은 아직 기록에 없어서, Claude가 열리면 ＋로 사진을 첨부한 뒤 보내기를 눌러요.'}</span></li>
+      <li><strong>Claude로 보내기</strong><span>{photo ? 'Claude가 열리면 요청문이 채워져 있어요. 사진은 Claude가 기록에서 직접 가져오니 보내기만 누르면 돼요.' : '먼저 사진을 비공개로 올린 뒤 Claude로 보내요. Claude가 그 사진을 직접 가져가고, 원본은 기록에 추가되지 않아요.'}</span></li>
       <li><strong>완성되면 새로고침</strong><span>보통 몇 분 걸려요. Claude에 결과가 나오면 앱을 새로고침해 기록을 확인해요.</span></li>
     </ol>
     <div className="handoff-template" aria-label="사진 편집 스타일">{(Object.keys(templateLabels) as Template[]).map((value) => <button type="button" key={value} aria-pressed={template === value} onClick={() => { setTemplate(value); setPrompt(makePrompt(metadata, value)); setStatus(''); }}>{templateLabels[value]}</button>)}</div>
@@ -197,11 +164,12 @@ export default function HiggsfieldHandoff({ photo, sourceFile, sourceDate = '', 
     <label htmlFor={promptId}>편집 요청</label>
     <textarea id={promptId} ref={promptRef} rows={8} maxLength={2400} value={prompt} onChange={(event) => setPrompt(event.target.value)} />
     <div className="handoff-share">
-      <a className="handoff-share-primary" href={claudeLink(claudeRequest)} target="_blank" rel="noreferrer" onClick={openedClaude}>Claude로 보내기 ↗</a>
+      {photo || sourceId
+        ? <a className="handoff-share-primary" href={claudeLink(claudeRequest)} target="_blank" rel="noreferrer" onClick={openedClaude}>Claude로 보내기 ↗</a>
+        : <button type="button" className="handoff-share-primary" disabled={preparing || staging || !photoFile} onClick={() => void stageSource()}>{preparing ? '사진 준비 중…' : staging ? '사진 올리는 중…' : '1. 사진 올리기 (Claude가 가져갈 수 있게)'}</button>}
       <p>환경 <strong>{CLAUDE_ENVIRONMENT}</strong>와 저장소가 자동으로 선택돼요. 다른 환경이 보이면 바꾼 뒤 보내 주세요. 한 장에 힉스필드 약 1크레딧이 들어요.</p>
     </div>
     <div className="handoff-actions">
-      {!photo && <button type="button" disabled={saving || preparing || !photoFile} onClick={() => void savePhoto()}>{preparing ? '사진 준비 중…' : saving ? '사진 저장 중…' : '첨부할 사진 저장'}</button>}
       <button type="button" onClick={() => void copyRequest()}>Claude 요청문 복사</button>
     </div>
     <details className="handoff-fallback"><summary>다른 곳에서 편집한 사진이 있나요?</summary>
