@@ -82,7 +82,7 @@ node scripts/import-edited-photo.mjs --file result.png --date 2026-11-18 \
   --uploader-label "여행자 A" --place "장소" --caption "메모" [--dry-run]
 ```
 
-- `--uploader-id`를 생략하면 그 사람이 앞서 올린 사진의 업로더 ID를 씁니다(앱에서 한 번은 직접 업로드해야 함). 업로더로 기록된 사람만 앱에서 삭제할 수 있습니다.
+- `--uploader-id`를 생략하면 그 사람이 가장 최근에 올린 사진의 업로더 ID를 씁니다(앱에서 한 번은 직접 업로드해야 함). 로그인 방법을 바꾸면(예: 일회용 코드 → Google) 업로더 ID도 바뀌므로, 새 방법으로 앱에서 한 장 올린 뒤 가져오면 앱에서 지울 수 있습니다. 업로더로 기록된 사람만 앱에서 삭제할 수 있습니다.
 - `--dry-run`은 변환·D1 접근·저장 상한만 확인하고 아무것도 쓰지 않습니다.
 - 빌드가 필요 없습니다. D1/R2 이름은 `.standalone.json` 또는 환경 변수에서 읽습니다.
 - wrangler 인증이 필요합니다(로컬은 `wrangler login`, 클라우드는 아래 네트워크 시크릿).

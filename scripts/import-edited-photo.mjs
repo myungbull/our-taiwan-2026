@@ -5,7 +5,7 @@
 // (login, or CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID). No build is required.
 //   node scripts/import-edited-photo.mjs --file result.png --date 2026-11-18 \
 //     --uploader-label "여행자 A" [--uploader-id <Access user id>] [--place ..] [--caption ..] [--dry-run]
-// Without --uploader-id the id is taken from that member's earlier uploads.
+// Without --uploader-id the id is taken from that member's most recent upload.
 // --dry-run converts the image and checks D1 access and the storage cap without writing anything.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -81,8 +81,10 @@ const [usage] = query("SELECT COALESCE(SUM(byte_size),0) AS used FROM photos");
 if (Number(usage.used) + jpeg.length > R2_MAX_BYTES) fail("free storage cap reached; delete photos first.");
 let uploaderId = args["uploader-id"];
 if (!uploaderId) {
-  const known = query(`SELECT DISTINCT uploader_id FROM photos WHERE uploader_label = ${sql(args["uploader-label"])}`);
-  if (known.length !== 1) fail(`found ${known.length} uploader ids for ${args["uploader-label"]}; pass --uploader-id.`);
+  // A member's id changes when they switch login method (e.g. Naver one-time code -> Google),
+  // so use the id from their most recent upload.
+  const known = query(`SELECT uploader_id FROM photos WHERE uploader_label = ${sql(args["uploader-label"])} ORDER BY uploaded_at DESC LIMIT 1`);
+  if (!known.length) fail(`no earlier upload for ${args["uploader-label"]}; pass --uploader-id.`);
   uploaderId = known[0].uploader_id;
 }
 if (args["dry-run"]) {
