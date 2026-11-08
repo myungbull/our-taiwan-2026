@@ -597,3 +597,11 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .trip-map-offline h2 { margin: 0; font-size: 15px; }
 .trip-map-offline ol { display: grid; gap: 6px; margin: 0; padding-left: 18px; color: #6f6266; font-size: 12.5px; line-height: 1.6; }
 .trip-map-offline a { color: var(--primary); }
+
+/* Floating refresh (bottom-right, above the tab bar) */
+.floating-refresh { position: fixed; z-index: 21; right: max(16px, calc(50% - 240px + 16px)); bottom: calc(max(0px, env(safe-area-inset-bottom)) + 96px); display: grid; place-items: center; width: 48px; height: 48px; padding: 0; border: 1px solid #eadfdb; border-radius: 50%; background: #fff; color: var(--primary); box-shadow: 0 6px 16px #58414926; cursor: pointer; }
+.floating-refresh svg { width: 20px; height: 20px; }
+.floating-refresh .sync-dot { top: 9px; right: 9px; }
+.floating-refresh.is-spinning svg { animation: refresh-spin .8s linear infinite; }
+@keyframes refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .floating-refresh.is-spinning svg { animation: none; } }

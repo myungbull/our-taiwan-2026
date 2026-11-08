@@ -97,11 +97,13 @@ export async function DELETE(request: Request) {
   if (!id || !/^[a-f0-9-]{36}$/i.test(id)) return Response.json({ error: '사진을 확인해 주세요.' }, { status: 400 });
   if (!env.BUCKET) return Response.json({ error: '비공개 사진 저장소를 사용할 수 없습니다.' }, { status: 503 });
   try {
-    const photo = await env.DB!.prepare('SELECT object_key,uploader_id FROM photos WHERE id=?').bind(id).first<{ object_key: string; uploader_id: string }>();
+    const photo = await env.DB!.prepare('SELECT object_key,uploader_id,uploader_label FROM photos WHERE id=?').bind(id).first<{ object_key: string; uploader_id: string; uploader_label: string }>();
     if (!photo) return Response.json({ error: '사진을 찾을 수 없습니다.' }, { status: 404 });
-    if (photo.uploader_id !== member.userId) return Response.json({ error: '사진을 올린 사람만 삭제할 수 있습니다.' }, { status: 403 });
+    // The Access user id changes when a traveler switches login method (e.g. Naver one-time
+    // code -> Google), so the same traveler slot (여행자 A/B) may also delete it.
+    if (photo.uploader_id !== member.userId && photo.uploader_label !== travelerLabel(member.memberIndex)) return Response.json({ error: '사진을 올린 사람만 삭제할 수 있습니다.' }, { status: 403 });
     await env.BUCKET.delete(photo.object_key);
-    await env.DB!.prepare('DELETE FROM photos WHERE id=? AND uploader_id=?').bind(id, member.userId).run();
+    await env.DB!.prepare('DELETE FROM photos WHERE id=?').bind(id).run();
     return Response.json({ ok: true });
   } catch {
     return Response.json({ error: '사진 삭제에 실패했습니다.' }, { status: 503 });
