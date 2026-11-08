@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import { ACCUWEATHER_SWITCH_DATE, dayRegions, shiftWeatherDate, taipeiDate } from '../app/weather-data.ts';
 import { ACCUWEATHER_FRESH_MS, readWeatherState, refreshWeather, resultFromState } from '../app/api/weather/service.ts';
+import { normalizeAccuWeatherData, normalizeAccuWeatherHourly } from '../app/api/weather/accuweather.ts';
 
 // Fake key used only by this test; it must never appear in URLs, logs or stored errors.
 const KEY = 'test-accuweather-key-not-real';
@@ -50,8 +51,19 @@ const accuWeatherCurrent = [{
   IsDayTime: true, WeatherText: '흐림', Precip1hr: { Metric: { Value: 0 } }, Wind: { Speed: { Metric: { Value: 10 } } },
 }];
 
-// Routes requests by provider/path; `fail` overrides AccuWeather forecast responses.
-function createFetch({ start, fail } = {}) {
+// 120 hourly rows from 09:00 Taipei on `start`, in AccuWeather's +08:00 format.
+function accuWeatherHourly(start, hours = 120) {
+  const first = Date.parse(start + 'T01:00:00Z');
+  return Array.from({ length: hours }, (_, index) => ({
+    DateTime: new Date(first + index * 3_600_000 + 8 * 3_600_000).toISOString().slice(0, 19) + '+08:00',
+    Temperature: { Value: 20 + (index % 5), Unit: 'C' },
+    PrecipitationProbability: index % 100,
+    IconPhrase: index % 2 ? '소나기' : '흐림',
+  }));
+}
+
+// Routes requests by provider/path; `fail` overrides AccuWeather daily responses, `failHourly` the hourly ones.
+function createFetch({ start, fail, failHourly } = {}) {
   const calls = [];
   const fetch = async (url, init) => {
     calls.push({ url: String(url), authorization: init.headers.get('Authorization') });
@@ -59,6 +71,7 @@ function createFetch({ start, fail } = {}) {
     if (url.pathname.includes('/locations/')) return Response.json([{ Key: '315078' }]);
     if (url.pathname.includes('/forecasts/v1/daily/15day/')) return fail ? fail() : Response.json(accuWeatherForecast(start));
     if (url.pathname.includes('/currentconditions/')) return Response.json(accuWeatherCurrent);
+    if (url.pathname.includes('/forecasts/v1/hourly/120hour/')) return failHourly ? failHourly() : Response.json(accuWeatherHourly(start));
     throw new Error('unexpected url ' + url);
   };
   return { fetch, calls };
@@ -66,7 +79,7 @@ function createFetch({ start, fail } = {}) {
 
 function runtime(db, now, options = {}) {
   const logs = [];
-  const mock = createFetch({ start: taipeiDate(new Date(now)), fail: options.fail });
+  const mock = createFetch({ start: taipeiDate(new Date(now)), fail: options.fail, failHourly: options.failHourly });
   return { logs, calls: mock.calls, value: { db, key: options.key, fetch: mock.fetch, now: () => now, sleep: async () => {}, log: event => logs.push(event) } };
 }
 
@@ -89,7 +102,9 @@ test('before the switch only Open-Meteo is called, even when a key exists', asyn
 test('from the switch AccuWeather is called with a Bearer header and the key never appears in URLs', async () => {
   const db = createDb(), run = runtime(db, AT_SWITCH, { key: KEY });
   const state = await refreshWeather(run.value, 'taipei');
-  assert.deepEqual(run.calls.map(call => new URL(call.url).hostname), ['dataservice.accuweather.com', 'dataservice.accuweather.com', 'dataservice.accuweather.com']);
+  assert.equal(run.calls.length, 4, 'location + daily + current + hourly');
+  assert.ok(run.calls.every(call => new URL(call.url).hostname === 'dataservice.accuweather.com'));
+  assert.equal(run.calls.filter(call => new URL(call.url).pathname === '/forecasts/v1/hourly/120hour/315078' && new URL(call.url).searchParams.get('metric') === 'true').length, 1);
   assert.ok(run.calls.every(call => call.authorization === 'Bearer ' + KEY && !call.url.includes(KEY)));
   assert.equal(state.accuweather_location_key, '315078');
   const result = resultFromState(state, 'taipei', '2026-11-20', AT_SWITCH, true);
@@ -140,19 +155,20 @@ test('a missing key after the switch makes no request, keeps old Open-Meteo data
   }
 });
 
-test('a fresh AccuWeather cache is reused, and the cached location key skips the lookup after an hour', async () => {
+test('a fresh AccuWeather cache is reused for two hours, then the cached location key skips the lookup', async () => {
+  assert.equal(ACCUWEATHER_FRESH_MS, 120 * MINUTE);
   const db = createDb();
   await refreshWeather(runtime(db, AT_SWITCH, { key: KEY }).value, 'taipei');
-  const cached = runtime(db, AT_SWITCH + 59 * MINUTE, { key: KEY });
+  const cached = runtime(db, AT_SWITCH + 119 * MINUTE, { key: KEY });
   await refreshWeather(cached.value, 'taipei');
   assert.equal(cached.calls.length, 0);
   const due = runtime(db, AT_SWITCH + ACCUWEATHER_FRESH_MS, { key: KEY });
   await refreshWeather(due.value, 'taipei');
-  assert.equal(due.calls.length, 2);
+  assert.equal(due.calls.length, 3, 'daily + current + hourly');
   assert.ok(due.calls.every(call => !call.url.includes('/locations/')));
 });
 
-test('an AccuWeather outage keeps the last snapshot, marks it stale, backs off an hour and never logs the key', async () => {
+test('an AccuWeather outage keeps the last snapshot, marks it stale, backs off two hours and never logs the key', async () => {
   const db = createDb();
   await refreshWeather(runtime(db, AT_SWITCH, { key: KEY }).value, 'taipei');
   const now = AT_SWITCH + ACCUWEATHER_FRESH_MS;
@@ -187,4 +203,69 @@ test('malformed AccuWeather data is rejected instead of stored', async () => {
   const state = await refreshWeather(run.value, 'taipei');
   assert.equal(state.accuweather_json, null);
   assert.equal(state.last_error, 'AccuWeather:invalid-data:0');
+});
+
+test('hourly AccuWeather rows are normalized to Taipei local time and invalid rows are dropped', () => {
+  const hours = normalizeAccuWeatherHourly([
+    { DateTime: '2026-11-08T09:00:00+08:00', Temperature: { Value: 21.4, Unit: 'C' }, PrecipitationProbability: 35, IconPhrase: ' 흐림 ' },
+    { DateTime: '2026-11-08T02:00:00Z', Temperature: { Value: 22 }, PrecipitationProbability: 140, IconPhrase: '' },
+    { DateTime: '2026-11-08T10:00:00+08:00', Temperature: { Value: 23 } }, // duplicate hour
+    { DateTime: 'not-a-date', Temperature: { Value: 23 } },
+    null,
+    { DateTime: '2026-11-08T11:00:00+08:00', Temperature: { Value: 999 }, PrecipitationProbability: 0, IconPhrase: '비' },
+  ]);
+  assert.deepEqual(hours, [
+    { time: '2026-11-08T09:00', temperature: 21.4, rainProbability: 35, summary: '흐림' },
+    { time: '2026-11-08T10:00', temperature: 22, rainProbability: null, summary: undefined },
+    { time: '2026-11-08T11:00', temperature: null, rainProbability: 0, summary: '비' },
+  ]);
+  assert.throws(() => normalizeAccuWeatherHourly({ error: true }), /invalid-data/);
+});
+
+test('a full refresh stores 120 hourly rows and resultFromState passes on only those from Taipei today onward', async () => {
+  const db = createDb();
+  const state = await refreshWeather(runtime(db, AT_SWITCH, { key: KEY }).value, 'taipei');
+  assert.equal(JSON.parse(state.accuweather_json).data.hourly.length, 120);
+  const result = resultFromState(state, 'taipei', '2026-11-08', AT_SWITCH, true);
+  assert.equal(result.hourly.length, 120);
+  assert.deepEqual(result.hourly[0], { time: '2026-11-08T09:00', temperature: 20, rainProbability: 0, summary: '흐림' });
+  const nextDay = AT_SWITCH + 24 * 60 * MINUTE;
+  const later = resultFromState(state, 'taipei', '2026-11-09', nextDay, true);
+  assert.ok(later.hourly.length > 0 && later.hourly.every(hour => hour.time >= '2026-11-09'));
+  assert.equal(later.hourly[0].time, '2026-11-09T00:00');
+});
+
+test('an hourly failure keeps the daily and current refresh and stores hourly as []', async () => {
+  for (const failHourly of [() => new Response('down', { status: 503 }), () => new Response('{"Code":"Unauthorized"}', { status: 401 }), () => Response.json({ broken: true })]) {
+    const db = createDb(), run = runtime(db, AT_SWITCH, { key: KEY, failHourly });
+    const state = await refreshWeather(run.value, 'taipei');
+    assert.equal(state.accuweather_failures, 0);
+    assert.equal(state.last_error, null);
+    assert.equal(state.accuweather_next_at, AT_SWITCH + ACCUWEATHER_FRESH_MS);
+    assert.deepEqual(JSON.parse(state.accuweather_json).data.hourly, []);
+    const result = resultFromState(state, 'taipei', '2026-11-20', AT_SWITCH, true);
+    assert.equal(result.refresh.switchState, 'active');
+    assert.equal(result.stale, false);
+    assert.deepEqual(result.hourly, []);
+    assert.equal(result.current.kind, 'observation');
+    assert.equal(result.selectedForecast.rainProbability, 60);
+    assert.ok(!JSON.stringify(run.logs).includes(KEY));
+  }
+});
+
+test('AccuWeather daily forecasts keep day and night halves separately', () => {
+  const forecast = accuWeatherForecast('2026-11-08', 2);
+  forecast.DailyForecasts[1].Day = { IconPhrase: '  ', PrecipitationProbability: 120 };
+  const data = normalizeAccuWeatherData(forecast, accuWeatherCurrent, '2026-11-08T01:00:00.000Z');
+  assert.deepEqual(data.daily[0].day, { summary: '구름 많음', rainProbability: 40 });
+  assert.deepEqual(data.daily[0].night, { summary: '비', rainProbability: 60 });
+  assert.equal(data.daily[0].rainProbability, 60);
+  assert.equal(data.daily[0].summary, '구름 많음 · 비');
+  assert.deepEqual(data.daily[1].day, { summary: undefined, rainProbability: null });
+  assert.equal(data.daily[1].summary, '비');
+});
+
+test('trip day regions include Taipei on 11/20 and 11/21', () => {
+  assert.deepEqual(dayRegions['2026-11-20'], ['taipei', 'yehliu', 'shifen', 'jiufen']);
+  assert.deepEqual(dayRegions['2026-11-21'], ['taipei', 'wulai']);
 });

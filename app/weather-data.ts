@@ -10,8 +10,8 @@ export type WeatherRegionId = keyof typeof weatherRegions;
 export const dayRegions: Record<string, readonly WeatherRegionId[]> = {
   '2026-11-18': ['taipei', 'taoyuan'],
   '2026-11-19': ['taipei'],
-  '2026-11-20': ['yehliu', 'shifen', 'jiufen'],
-  '2026-11-21': ['wulai', 'taipei'],
+  '2026-11-20': ['taipei', 'yehliu', 'shifen', 'jiufen'],
+  '2026-11-21': ['taipei', 'wulai'],
   '2026-11-22': ['wulai', 'taoyuan'],
 };
 export const WEATHER_TIMEZONE = 'Asia/Taipei';
@@ -23,8 +23,11 @@ export type WeatherCurrent = {
   isDay: boolean | null; code: number | null; precipitation: number | null; wind: number | null;
   source?: WeatherProvider; kind?: 'model' | 'observation'; station?: string; fetchedAt?: string; stale?: boolean; summary?: string;
 };
-export type WeatherDay = { date: string; code: number | null; minimum: number | null; maximum: number | null; rainProbability: number | null; source?: WeatherProvider; fetchedAt?: string; stale?: boolean; summary?: string };
-export type WeatherData = { fetchedAt: string; timezone: typeof WEATHER_TIMEZONE; current: WeatherCurrent | null; daily: WeatherDay[] };
+export type WeatherHalfDay = { summary?: string; rainProbability: number | null };
+export type WeatherDay = { date: string; code: number | null; minimum: number | null; maximum: number | null; rainProbability: number | null; source?: WeatherProvider; fetchedAt?: string; stale?: boolean; summary?: string; day?: WeatherHalfDay; night?: WeatherHalfDay };
+// time is 'YYYY-MM-DDTHH:mm' in Asia/Taipei.
+export type WeatherHour = { time: string; temperature: number | null; rainProbability: number | null; summary?: string };
+export type WeatherData = { fetchedAt: string; timezone: typeof WEATHER_TIMEZONE; current: WeatherCurrent | null; daily: WeatherDay[]; hourly?: WeatherHour[] };
 export type WeatherResult = WeatherData & {
   provider: WeatherProvider; region: { id: WeatherRegionId; name: string }; requestedDate: string;
   selectedForecast: WeatherDay | null; availability: 'available' | 'not-yet' | 'past' | 'unavailable';

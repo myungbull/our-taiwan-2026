@@ -50,7 +50,7 @@ const placePins: PlacePin[] = [
   makePin('shifen', '스펀 옛 거리', '2026-11-20', 'Shifen Old Street', 25.0426, 121.7762),
   makePin('jiufen', '지우펀 옛 거리', '2026-11-20', 'Jiufen Old Street', 25.1096, 121.8442),
   makePin('wulai-oldstreet', '우라이 옛 거리', '2026-11-21', 'Wulai Old Street', 24.8650, 121.5505),
-  makePin('spring-spa', 'Spring Spa Hotel', '2026-11-21', 'Spring Spa Hotel Wulai', 24.8630, 121.5504),
+  makePin('longmun-homestay', '룽먼 온천 홈스테이', '2026-11-21', '龍門精緻溫泉民宿 新北市烏來區溫泉街116號', 24.8602, 121.5515),
   makePin('wulai-falls', '우라이 폭포', '2026-11-22', 'Wulai Falls', 24.8425, 121.5518),
   makePin('taoyuan', '타오위안공항 T1', '2026-11-22', 'Taiwan Taoyuan International Airport Terminal 1', 25.0797, 121.2342),
 ];

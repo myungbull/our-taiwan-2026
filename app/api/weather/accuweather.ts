@@ -1,4 +1,4 @@
-import { WEATHER_TIMEZONE, type WeatherData, type WeatherRegionId } from '../../weather-data';
+import { WEATHER_TIMEZONE, type WeatherData, type WeatherHalfDay, type WeatherHour, type WeatherRegionId } from '../../weather-data';
 
 type FetchJson = (url: URL, provider: 'AccuWeather', region: WeatherRegionId, apiKey?: string) => Promise<unknown>;
 type JsonObject = Record<string, unknown>;
@@ -35,6 +35,14 @@ function probability(value: unknown): number | null {
   return number(value, 0, 100);
 }
 
+function phrase(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function halfDay(row: JsonObject): WeatherHalfDay {
+  return { summary: phrase(row.IconPhrase), rainProbability: probability(row.PrecipitationProbability) };
+}
+
 export function normalizeAccuWeatherData(forecastRaw: unknown, currentRaw: unknown, fetchedAt: string): WeatherData {
   const forecast = object(forecastRaw);
   const rawDays = forecast?.DailyForecasts;
@@ -51,11 +59,9 @@ export function normalizeAccuWeatherData(forecastRaw: unknown, currentRaw: unkno
     const minimum = measurement(temperature.Minimum, -90, 65);
     const maximum = measurement(temperature.Maximum, -90, 65);
     const inverted = minimum !== null && maximum !== null && minimum > maximum;
-    const phrases = [daytime.IconPhrase, nighttime.IconPhrase]
-      .filter((phrase): phrase is string => typeof phrase === 'string' && phrase.trim().length > 0)
-      .map(phrase => phrase.trim());
-    const probabilities = [probability(daytime.PrecipitationProbability), probability(nighttime.PrecipitationProbability)]
-      .filter((value): value is number => value !== null);
+    const dayHalf = halfDay(daytime), nightHalf = halfDay(nighttime);
+    const phrases = [dayHalf.summary, nightHalf.summary].filter((value): value is string => value !== undefined);
+    const probabilities = [dayHalf.rainProbability, nightHalf.rainProbability].filter((value): value is number => value !== null);
 
     return {
       date: localized.date,
@@ -64,6 +70,8 @@ export function normalizeAccuWeatherData(forecastRaw: unknown, currentRaw: unkno
       maximum: inverted ? null : maximum,
       rainProbability: probabilities.length ? Math.max(...probabilities) : null,
       summary: [...new Set(phrases)].join(' · ') || '예보 설명 없음',
+      day: dayHalf,
+      night: nightHalf,
     };
   });
 
@@ -84,6 +92,24 @@ export function normalizeAccuWeatherData(forecastRaw: unknown, currentRaw: unkno
   } : null;
 
   return { fetchedAt, timezone: WEATHER_TIMEZONE, current, daily };
+}
+
+// forecasts/v1/hourly/120hour: invalid rows are skipped, times are kept in Asia/Taipei.
+export function normalizeAccuWeatherHourly(raw: unknown): WeatherHour[] {
+  if (!Array.isArray(raw)) throw new Error('invalid-data');
+  const hours: WeatherHour[] = [];
+  for (const rawHour of raw.slice(0, 240)) {
+    const hour = object(rawHour);
+    const localized = taipeiDateTime(hour?.DateTime);
+    if (!hour || !localized || (hours.length && localized.time <= hours[hours.length - 1].time)) continue;
+    hours.push({
+      time: localized.time,
+      temperature: measurement(hour.Temperature, -90, 65),
+      rainProbability: probability(hour.PrecipitationProbability),
+      summary: phrase(hour.IconPhrase),
+    });
+  }
+  return hours;
 }
 
 async function getLocationKey(region: WeatherRegionId, apiKey: string, fetchJson: FetchJson, coordinates: { latitude: number; longitude: number }): Promise<string> {
@@ -112,9 +138,13 @@ export async function loadAccuWeather(
   forecastUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'false', metric: 'true' }).toString();
   const currentUrl = new URL('https://dataservice.accuweather.com/currentconditions/v1/' + encodeURIComponent(locationKey));
   currentUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'true' }).toString();
-  const [forecast, current] = await Promise.all([
+  const hourlyUrl = new URL('https://dataservice.accuweather.com/forecasts/v1/hourly/120hour/' + encodeURIComponent(locationKey));
+  hourlyUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'false', metric: 'true' }).toString();
+  // Hourly is optional: its failure must not discard a good daily/current refresh.
+  const [forecast, current, hourly] = await Promise.all([
     fetchJson(forecastUrl, 'AccuWeather', region, apiKey),
     fetchJson(currentUrl, 'AccuWeather', region, apiKey),
+    fetchJson(hourlyUrl, 'AccuWeather', region, apiKey).then(normalizeAccuWeatherHourly).catch((): WeatherHour[] => []),
   ]);
-  return { data: normalizeAccuWeatherData(forecast, current, fetchedAt), locationKey };
+  return { data: { ...normalizeAccuWeatherData(forecast, current, fetchedAt), hourly }, locationKey };
 }

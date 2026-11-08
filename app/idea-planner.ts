@@ -65,12 +65,12 @@ const TOUR_DATE = '2026-11-20';
 const SAFE_WINDOWS: readonly SlotTemplate[] = [
   {
     date: '2026-11-18',
-    time: '12:15',
+    time: '12:20',
     maxDurationMinutes: 45,
     estimatedTravelMinutes: 25,
-    origin: 'Taipei Main Station',
+    origin: 'Ximending Taipei',
     nextStop: 'Dihua Street Taipei',
-    reason: '호텔에 짐을 맡긴 뒤 14시 디화제 산책 전에 짧게 들를 수 있는 시간대입니다. 체류 45분 이하이며 장소가 메인역·디화제 동선에 맞을 때 추천합니다.',
+    reason: '시먼 호텔에 짐을 맡긴 뒤 14시 디화제 산책 전에 짧게 들를 수 있는 시간대입니다. 체류 45분 이하이며 장소가 시먼·디화제 동선에 맞을 때 추천합니다.',
   },
   {
     date: '2026-11-19',
@@ -111,7 +111,7 @@ function containsStop(day: PlannerDay | undefined, matcher: RegExp): boolean {
 function slotIsSupportedByItinerary(template: SlotTemplate, day: PlannerDay | undefined): boolean {
   if (!day) return false;
   if (template.date === '2026-11-18') {
-    return containsStop(day, /타이베이 호텔|Taipei Main Station/i)
+    return containsStop(day, /Ferrary|華麗大飯店|타이베이 호텔|Taipei Main Station/i)
       && containsStop(day, /디화제|Dihua Street/i)
       && containsStop(day, /닝샤|Ningxia/i);
   }

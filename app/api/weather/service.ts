@@ -2,7 +2,8 @@ import { ACCUWEATHER_SWITCH_DATE, normalizeWeatherData, shiftWeatherDate, taipei
 import { loadAccuWeather } from './accuweather';
 
 export const FRESH_MS = 15 * 60_000;
-export const ACCUWEATHER_FRESH_MS = 60 * 60_000;
+// 6 regions × 3 calls (daily, current, hourly) × 12 refreshes/day = 216 < 500/day trial quota.
+export const ACCUWEATHER_FRESH_MS = 120 * 60_000;
 const LEASE_MS = 90_000;
 type Snapshot = { data: WeatherData; savedAt: number };
 export type WeatherState = {
@@ -64,6 +65,8 @@ export function resultFromState(state: WeatherState, region: WeatherRegionId, da
     .filter(day => day.date >= today)
     .map(day => ({ ...day, source: provider, fetchedAt: selectedSnapshot.data.fetchedAt, stale: staleBySource(provider, selectedSnapshot) })) ?? [];
 
+  const hourly = selectedSnapshot?.data.hourly?.filter(hour => hour.time >= today) ?? [];
+
   const currentSnapshot = switchActive && accuweather?.data.current ? accuweather : primary;
   const currentSource: WeatherProvider = currentSnapshot === accuweather && accuweather ? 'AccuWeather' : 'Open-Meteo';
   const current = currentSnapshot?.data.current
@@ -81,6 +84,7 @@ export function resultFromState(state: WeatherState, region: WeatherRegionId, da
     timezone: 'Asia/Taipei',
     current,
     daily,
+    hourly,
   };
   const result = weatherResultForDate(
     data, region, date, today,

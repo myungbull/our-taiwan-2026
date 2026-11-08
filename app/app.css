@@ -153,6 +153,8 @@ input[type=checkbox] { accent-color: var(--primary); }
 .stop-topline time { font-size: 13px; font-weight: 700; color: var(--primary); }
 .stop-topline a { display: inline-flex; align-items: center; gap: 3px; min-height: 36px; padding: 0 5px; color: var(--primary); font-size: 12px; }
 .stop-topline a svg { width: 14px; height: 14px; }
+.stop-weather { display: inline-flex; align-items: center; max-width: 100%; margin: 0 0 6px; padding: 3px 9px; border-radius: 999px; background: #eef3f6; color: #3e5562; font-size: 11.5px; font-weight: 650; line-height: 1.5; }
+.stop-weather.is-loading { color: #8a98a0; font-weight: 500; }
 .itinerary-stop h3 { margin-bottom: 7px; font-size: 17px; }
 .itinerary-stop>p { color: #776c6f; font-size: 13px; line-height: 1.8; word-break: keep-all; }
 .stop-transport { display: flex; align-items: center; gap: 5px; width: fit-content; margin-top: 11px; padding: 4px 8px; border-radius: 7px; background: #eee8e2; color: #8c737a; font-size: 11px; }
