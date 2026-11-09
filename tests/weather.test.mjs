@@ -68,7 +68,7 @@ function createFetch({ start, fail, failHourly } = {}) {
   const fetch = async (url, init) => {
     calls.push({ url: String(url), authorization: init.headers.get('Authorization') });
     if (url.hostname === 'api.open-meteo.com') return Response.json(openMeteoBody(start));
-    if (url.pathname.includes('/locations/')) return Response.json([{ Key: '315078' }]);
+    if (url.pathname.includes('/locations/')) return Response.json({ Key: '315078' });
     if (url.pathname.includes('/forecasts/v1/daily/15day/')) return fail ? fail() : Response.json(accuWeatherForecast(start));
     if (url.pathname.includes('/currentconditions/')) return Response.json(accuWeatherCurrent);
     if (url.pathname.includes('/forecasts/v1/hourly/120hour/')) return failHourly ? failHourly() : Response.json(accuWeatherHourly(start));

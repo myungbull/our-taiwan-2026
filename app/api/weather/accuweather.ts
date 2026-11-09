@@ -119,7 +119,8 @@ async function getLocationKey(region: WeatherRegionId, apiKey: string, fetchJson
     language: 'ko-kr',
   }).toString();
   const raw = await fetchJson(url, 'AccuWeather', region, apiKey);
-  const first = Array.isArray(raw) ? object(raw[0]) : null;
+  // geoposition/search returns a single location object (city search returns an array).
+  const first = Array.isArray(raw) ? object(raw[0]) : object(raw);
   const key = first?.Key;
   if (typeof key !== 'string' || !/^[A-Za-z0-9]{1,64}$/.test(key)) throw new Error('invalid-location');
   return key;
