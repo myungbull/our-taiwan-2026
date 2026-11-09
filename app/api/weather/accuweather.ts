@@ -136,7 +136,7 @@ export async function loadAccuWeather(
 ): Promise<{ data: WeatherData; locationKey: string }> {
   const locationKey = cachedLocationKey || await getLocationKey(region, apiKey, fetchJson, coordinates);
   const forecastUrl = new URL('https://dataservice.accuweather.com/forecasts/v1/daily/15day/' + encodeURIComponent(locationKey));
-  forecastUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'false', metric: 'true' }).toString();
+  forecastUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'true', metric: 'true' }).toString();
   const currentUrl = new URL('https://dataservice.accuweather.com/currentconditions/v1/' + encodeURIComponent(locationKey));
   currentUrl.search = new URLSearchParams({ language: 'ko-kr', details: 'true' }).toString();
   const hourlyUrl = new URL('https://dataservice.accuweather.com/forecasts/v1/hourly/120hour/' + encodeURIComponent(locationKey));
