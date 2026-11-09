@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout handoff/weather-tests)",
+      "Bash(git pull:*)",
+      "Bash(npm ci:*)",
+      "Bash(node scripts/fetch-trip-photo.mjs:*)",
+      "Bash(node scripts/import-edited-photo.mjs:*)",
+      "mcp__e6d4c2d7-5682-4f3a-9cb0-9967d97be0c0__media_upload",
+      "mcp__e6d4c2d7-5682-4f3a-9cb0-9967d97be0c0__media_confirm",
+      "mcp__e6d4c2d7-5682-4f3a-9cb0-9967d97be0c0__generate_image",
+      "mcp__e6d4c2d7-5682-4f3a-9cb0-9967d97be0c0__jobs_wait",
+      "mcp__e6d4c2d7-5682-4f3a-9cb0-9967d97be0c0__show_generation_by_ids"
+    ]
+  }
+}
