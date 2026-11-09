@@ -5,7 +5,8 @@
 // (login, or CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID). No build is required.
 //   node scripts/import-edited-photo.mjs --file result.png --date 2026-11-18 \
 //     --uploader-label "여행자 A" [--uploader-id <Access user id>] [--place ..] [--caption ..] [--dry-run]
-// Without --uploader-id the id is taken from that member's most recent upload.
+// Without --uploader-id the id is taken from that member's most recent upload, or a fixed
+// per-traveler id when they have none (the app lets the same traveler delete it either way).
 // --dry-run converts the image and checks D1 access and the storage cap without writing anything.
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -89,8 +90,9 @@ if (!uploaderId) {
   // A member's id changes when they switch login method (e.g. Naver one-time code -> Google),
   // so use the id from their most recent upload.
   const known = query(`SELECT uploader_id FROM photos WHERE uploader_label = ${sql(args["uploader-label"])} ORDER BY uploaded_at DESC LIMIT 1`);
-  if (!known.length) fail(`no earlier upload for ${args["uploader-label"]}; pass --uploader-id.`);
-  uploaderId = known[0].uploader_id;
+  // No earlier upload (e.g. the album was emptied): use a fixed per-traveler id. Deleting in the
+  // app is allowed for the same traveler label, so the photo stays deletable by its owner.
+  uploaderId = known.length ? known[0].uploader_id : (args["uploader-label"] === "여행자 A" ? "ai-edit-traveler-a" : "ai-edit-traveler-b");
 }
 if (args["dry-run"]) {
   console.log(JSON.stringify({ dryRun: true, date: args.date, bytes: jpeg.length, storedBytes: Number(usage.used), uploaderId }));
