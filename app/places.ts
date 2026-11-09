@@ -14,5 +14,5 @@ export const restaurants = [
 
 export const hotels = [
   { name: 'Ferrary Hotel · 華麗大飯店', stay: '11/18~11/21 · 3박 · 예약 완료', room: 'Business Double Room · 1실', price: 'USD 243.26 · ₩326,324 결제 완료', check: '체크인 15:00 / 아웃 12:00', transport: '台北市萬華區康定路41號 · 시먼역에서 걸어서 약 8분 · 용산사 약 12분 (추정)', note: 'Agoda 예약 1794494816. 체크인 전·체크아웃 후 짐 보관은 호텔에 확인하세요.', source: 'https://www.agoda.com/', query: '華麗大飯店 台北市萬華區康定路41號', budgetId: 'taipei' },
-  { name: '룽먼 온천 홈스테이 · 龍門精緻溫泉民宿', stay: '11/21~11/22 · 1박 · 예약 완료', room: 'Cozy Deluxe Room · 성인 2명', price: '₩150,311 결제 완료', check: '체크인 18:00 / 아웃 11:00', transport: '新北市烏來區溫泉街116號 추정 · 우라이 옛 거리 약 400m · 849번 버스 종점에서 걸어서 약 10분', note: '예약 1794507059 · 숙소 +886 937 061 354. 조식·커피·차·일본식 가운 포함. 주소는 블로그 1곳 기준이라 숙소에 확인하세요. 18시 전 짐 보관 여부도 확인 필요.', source: 'https://bunnyann.tw/longmen/', query: '龍門精緻溫泉民宿 新北市烏來區溫泉街116號', budgetId: 'wulai' },
+  { name: '룽먼 온천 홈스테이 · 龍門精緻溫泉民宿', stay: '11/21~11/22 · 1박 · 예약 완료', room: 'Cozy Deluxe Room · 성인 2명', price: '₩150,311 결제 완료', check: '체크인 18:00 / 아웃 11:00', transport: '新北市烏來區溫泉街116號 · 우라이 옛 거리 약 400m · 849번 버스 종점에서 걸어서 약 10분', note: '예약 1794507059 · 숙소 +886 937 061 354. 조식·커피·차·일본식 가운 포함. 주소는 예약 확정서와 같아요. 18시 전 짐 보관 여부는 확인 필요.', source: 'https://bunnyann.tw/longmen/', query: '龍門精緻溫泉民宿 新北市烏來區溫泉街116號', budgetId: 'wulai' },
 ];

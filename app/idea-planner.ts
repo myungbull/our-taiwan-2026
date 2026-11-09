@@ -79,7 +79,7 @@ const SAFE_WINDOWS: readonly SlotTemplate[] = [
     estimatedTravelMinutes: 20,
     origin: 'Taipei 101 Observatory',
     nextStop: '혜안공원 (20:00 예상)',
-    reason: '15:30~18:00 타이베이 101 관람이 끝난 뒤 저녁 시간입니다. 20:00 혜안공원 야경 전까지만 쓰도록 체류 90분 이하에서 추천합니다.',
+    reason: '16:00~18:00 타이베이 101 관람이 끝난 뒤 저녁 시간입니다. 20:00 혜안공원 야경 전까지만 쓰도록 체류 90분 이하에서 추천합니다.',
   },
 ];
 

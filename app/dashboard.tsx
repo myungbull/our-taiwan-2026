@@ -56,7 +56,7 @@ export default function Dashboard({initialScreen='home',initialDate,initialField
  async function save(key:string,next:unknown){if(!ready||busy.current)return;busy.current=true;setSaving(true);setError('');try{const revision=rows.find(item=>item.key===key)?.revision??0;const response=await fetch('/api/state',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value:next,revision})});const result=await response.json() as {error?:string;revision:number};if(!response.ok)throw Error(result.error||'저장하지 못했습니다. 다시 시도해 주세요.');setRows(previous=>[...previous.filter(item=>item.key!==key),{key,value:JSON.stringify(next),revision:result.revision}]);setEditing(null)}catch(reason){setError(reason instanceof Error?reason.message:'저장하지 못했습니다.')}finally{busy.current=false;setSaving(false);void refresh()}}
  function openBudget(item:BudgetItem){setDraft({planned:item.planned,actual:item.actual===null?'':String(item.actual),paid:item.paid,estimated:item.estimated});setError('');setEditing(item.id)}
  const remaining=checklist.filter(item=>!done(item.id)).length;
- const todoPriority=['insurance','twac','airport-transfer','mobile','wulai-bag','cash','easycard','passport','observatory','forecast-decision','mango-call','flight-bill'];
+ const todoPriority=['insurance','twac','airport-transfer','mobile','wulai-bag','cash','easycard','passport','observatory','forecast-decision','mango-call','starbucks-coupon','flight-bill'];
  const shortcuts:{title:string;note:string;href:string;icon:IconName}[]=[
   {title:'예산·준비',note:`결제 반영 ${Math.round(paidShare)}% · 남은 준비 ${remaining}개`,href:'/prepare',icon:'wallet'},
   {title:'항공',note:'ZE881 11/18 · TR872 11/22',href:'/prepare?section=flights',icon:'plane'},
